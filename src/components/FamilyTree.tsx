@@ -13,6 +13,7 @@ import {
   BackgroundVariant,
   MiniMap,
   Position,
+  MarkerType,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { familyMembers, familyConnections } from '../data/familyData';
@@ -97,7 +98,7 @@ const FamilyTree: React.FC<FamilyTreeProps> = ({ onMemberSelect, searchQuery }) 
       },
       animated: connection.type === 'parent',
       markerEnd: connection.type === 'parent' ? {
-        type: 'arrowclosed',
+        type: MarkerType.ArrowClosed,
         color: '#64748b',
         width: 20,
         height: 20,
@@ -131,11 +132,9 @@ const FamilyTree: React.FC<FamilyTreeProps> = ({ onMemberSelect, searchQuery }) 
           position="top-right"
           className="!bg-white/90 !backdrop-blur-sm !border !border-slate-200 !shadow-xl !rounded-xl"
           style={{
-            button: {
-              backgroundColor: 'white',
-              borderBottom: '1px solid #e2e8f0',
-              color: '#475569',
-            }
+            backgroundColor: 'white',
+            borderBottom: '1px solid #e2e8f0',
+            color: '#475569',
           }}
         />
         <MiniMap 
