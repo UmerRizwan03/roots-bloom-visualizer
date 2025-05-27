@@ -13,6 +13,10 @@ export interface FamilyMember {
   parents?: string[];
   children?: string[];
   spouse?: string;
+  partners?: string[]; // For multiple partners
+  bloodType?: string;
+  mobileNumber?: string;
+  email?: string;
 }
 
 export interface FamilyConnection {

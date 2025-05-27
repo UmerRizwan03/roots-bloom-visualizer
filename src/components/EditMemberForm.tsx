@@ -31,7 +31,7 @@ const EditMemberForm: React.FC<EditMemberFormProps> = ({ member, onSave, onCance
 
   return (
     <Dialog open={true} onOpenChange={onCancel}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Edit Family Member</DialogTitle>
         </DialogHeader>
@@ -74,6 +74,27 @@ const EditMemberForm: React.FC<EditMemberFormProps> = ({ member, onSave, onCance
             </div>
             
             <div>
+              <label className="block text-sm font-medium mb-2">Blood Type</label>
+              <select
+                value={formData.bloodType || ''}
+                onChange={(e) => handleInputChange('bloodType', e.target.value)}
+                className="w-full p-2 border border-gray-300 rounded-md"
+              >
+                <option value="">Select blood type</option>
+                <option value="A+">A+</option>
+                <option value="A-">A-</option>
+                <option value="B+">B+</option>
+                <option value="B-">B-</option>
+                <option value="AB+">AB+</option>
+                <option value="AB-">AB-</option>
+                <option value="O+">O+</option>
+                <option value="O-">O-</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
               <label className="block text-sm font-medium mb-2">Birth Date</label>
               <Input
                 type="date"
@@ -81,15 +102,36 @@ const EditMemberForm: React.FC<EditMemberFormProps> = ({ member, onSave, onCance
                 onChange={(e) => handleInputChange('birthDate', e.target.value)}
               />
             </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2">Death Date</label>
+              <Input
+                type="date"
+                value={formData.deathDate || ''}
+                onChange={(e) => handleInputChange('deathDate', e.target.value)}
+              />
+            </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium mb-2">Death Date</label>
-            <Input
-              type="date"
-              value={formData.deathDate || ''}
-              onChange={(e) => handleInputChange('deathDate', e.target.value)}
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-2">Mobile Number</label>
+              <Input
+                value={formData.mobileNumber || ''}
+                onChange={(e) => handleInputChange('mobileNumber', e.target.value)}
+                placeholder="+1-555-0123"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium mb-2">Email Address</label>
+              <Input
+                type="email"
+                value={formData.email || ''}
+                onChange={(e) => handleInputChange('email', e.target.value)}
+                placeholder="email@example.com"
+              />
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">

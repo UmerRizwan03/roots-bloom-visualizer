@@ -1,5 +1,7 @@
+
 import React, { useState } from 'react';
 import { Search, Users, TreePine, Star, Heart } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import FamilyTree from '../components/FamilyTree';
 import SearchBar from '../components/SearchBar';
 import MemberModal from '../components/MemberModal';
@@ -28,7 +30,8 @@ const Index = () => {
               <h1 className="text-2xl font-bold text-emerald-800">FamilyRoots</h1>
             </div>
             <nav className="hidden md:flex space-x-8">
-              <a href="#" className="text-gray-600 hover:text-emerald-600 transition-colors">Home</a>
+              <Link to="/" className="text-gray-600 hover:text-emerald-600 transition-colors">Home</Link>
+              <Link to="/members" className="text-gray-600 hover:text-emerald-600 transition-colors">Members</Link>
               <a href="#" className="text-gray-600 hover:text-emerald-600 transition-colors">Features</a>
               <a href="#" className="text-gray-600 hover:text-emerald-600 transition-colors">About</a>
               <a href="#" className="text-gray-600 hover:text-emerald-600 transition-colors">Contact</a>
