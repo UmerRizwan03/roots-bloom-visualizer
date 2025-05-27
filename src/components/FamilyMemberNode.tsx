@@ -1,22 +1,36 @@
 
 import React from 'react';
 import { Handle, Position } from '@xyflow/react';
-import { User, Calendar, MapPin, Briefcase } from 'lucide-react';
+import { User, Calendar, MapPin, Briefcase, Edit, Trash2 } from 'lucide-react';
 import { FamilyMember } from '../types/family';
 
 interface FamilyMemberNodeProps {
   data: {
     member: FamilyMember;
     onSelect: (member: FamilyMember) => void;
+    onEdit: (member: FamilyMember) => void;
+    onDelete: (memberId: string) => void;
     isHighlighted?: boolean;
   };
 }
 
 const FamilyMemberNode: React.FC<FamilyMemberNodeProps> = ({ data }) => {
-  const { member, onSelect, isHighlighted } = data;
+  const { member, onSelect, onEdit, onDelete, isHighlighted } = data;
 
   const handleClick = () => {
     onSelect(member);
+  };
+
+  const handleEdit = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onEdit(member);
+  };
+
+  const handleDelete = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (confirm(`Are you sure you want to delete ${member.name}?`)) {
+      onDelete(member.id);
+    }
   };
 
   const currentYear = new Date().getFullYear();
@@ -35,12 +49,28 @@ const FamilyMemberNode: React.FC<FamilyMemberNodeProps> = ({ data }) => {
       <div
         onClick={handleClick}
         className={`
-          relative w-48 bg-white border border-slate-200 rounded-2xl shadow-lg 
+          relative w-52 bg-white border border-slate-200 rounded-2xl shadow-lg 
           cursor-pointer transition-all duration-300 hover:shadow-xl hover:-translate-y-1
           overflow-hidden group
           ${isHighlighted ? 'ring-2 ring-amber-400 shadow-amber-200/50' : ''}
         `}
       >
+        {/* Action Buttons */}
+        <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex space-x-1 z-10">
+          <button
+            onClick={handleEdit}
+            className="w-8 h-8 bg-blue-500 hover:bg-blue-600 text-white rounded-full flex items-center justify-center shadow-lg transition-colors"
+          >
+            <Edit className="w-4 h-4" />
+          </button>
+          <button
+            onClick={handleDelete}
+            className="w-8 h-8 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center shadow-lg transition-colors"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        </div>
+
         {/* Header with gradient */}
         <div className={`
           h-20 bg-gradient-to-br relative
