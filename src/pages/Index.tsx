@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Search, Users, TreePine, Star, Heart } from 'lucide-react';
 import FamilyTree from '../components/FamilyTree';
@@ -81,17 +80,18 @@ const Index = () => {
 
           {/* Interactive Family Tree */}
           <div className="relative">
-            <div className="bg-white rounded-2xl shadow-2xl border border-emerald-100 overflow-hidden">
-              <div className="bg-gradient-to-r from-emerald-600 to-green-600 px-6 py-4">
-                <h3 className="text-xl font-semibold text-white flex items-center">
-                  <Users className="mr-2" />
-                  Interactive Family Tree Demo
+            <div className="bg-white/70 backdrop-blur-sm rounded-3xl shadow-2xl border border-slate-200/50 overflow-hidden">
+              <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 px-8 py-6">
+                <h3 className="text-2xl font-bold text-white flex items-center">
+                  <Users className="mr-3 h-6 w-6" />
+                  Interactive Family Tree
                 </h3>
-                <p className="text-emerald-100 mt-1">
-                  Click, drag, and explore the connections between family members
+                <p className="text-slate-300 mt-2 text-sm">
+                  Explore family connections with our modern, interactive visualization
                 </p>
               </div>
-              <div className="h-[600px] bg-gradient-to-br from-green-50 to-emerald-50">
+              <div className="h-[650px] relative overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-br from-slate-50 via-white to-slate-100" />
                 <FamilyTree 
                   onMemberSelect={handleMemberSelect}
                   searchQuery={searchQuery}

@@ -39,8 +39,8 @@ const FamilyTree: React.FC<FamilyTreeProps> = ({ onMemberSelect, searchQuery }) 
 
   useEffect(() => {
     // Create nodes from family members
-    const generationSpacing = 200;
-    const memberSpacing = 180;
+    const generationSpacing = 220;
+    const memberSpacing = 200;
     const generationCounts = new Map();
     
     // Count members per generation
@@ -84,17 +84,24 @@ const FamilyTree: React.FC<FamilyTreeProps> = ({ onMemberSelect, searchQuery }) 
       };
     });
 
-    // Create edges from family connections
+    // Create edges with modern styling
     const familyEdges: Edge[] = familyConnections.map((connection) => ({
       id: connection.id,
       source: connection.source,
       target: connection.target,
       type: connection.type === 'spouse' ? 'straight' : 'smoothstep',
       style: {
-        stroke: connection.type === 'spouse' ? '#f59e0b' : '#10b981',
+        stroke: connection.type === 'spouse' ? '#f59e0b' : '#64748b',
         strokeWidth: connection.type === 'spouse' ? 3 : 2,
+        strokeDasharray: connection.type === 'spouse' ? '5,5' : undefined,
       },
       animated: connection.type === 'parent',
+      markerEnd: connection.type === 'parent' ? {
+        type: 'arrowclosed',
+        color: '#64748b',
+        width: 20,
+        height: 20,
+      } : undefined,
     }));
 
     setNodes(familyNodes);
@@ -112,31 +119,44 @@ const FamilyTree: React.FC<FamilyTreeProps> = ({ onMemberSelect, searchQuery }) 
         nodeTypes={nodeTypes}
         fitView
         fitViewOptions={{
-          padding: 0.2,
+          padding: 0.3,
           includeHiddenNodes: false,
         }}
-        defaultViewport={{ x: 0, y: 0, zoom: 0.8 }}
+        defaultViewport={{ x: 0, y: 0, zoom: 0.7 }}
         minZoom={0.1}
-        maxZoom={2}
-        style={{ background: 'transparent' }}
+        maxZoom={1.5}
+        style={{ background: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)' }}
       >
         <Controls 
           position="top-right"
-          className="!bg-white !border-emerald-200 !shadow-lg"
+          className="!bg-white/90 !backdrop-blur-sm !border !border-slate-200 !shadow-xl !rounded-xl"
+          style={{
+            button: {
+              backgroundColor: 'white',
+              borderBottom: '1px solid #e2e8f0',
+              color: '#475569',
+            }
+          }}
         />
         <MiniMap 
           nodeColor={(node) => {
             const member = (node.data as any).member as FamilyMember;
             return member.gender === 'male' ? '#3b82f6' : '#ec4899';
           }}
-          className="!bg-white !border-emerald-200 !shadow-lg"
+          className="!bg-white/90 !backdrop-blur-sm !border !border-slate-200 !shadow-xl !rounded-xl !overflow-hidden"
           position="bottom-right"
+          style={{
+            backgroundColor: 'rgba(255, 255, 255, 0.9)',
+          }}
         />
         <Background 
           variant={BackgroundVariant.Dots}
-          gap={20} 
-          size={1} 
-          color="#d1fae5"
+          gap={30} 
+          size={1.5} 
+          color="#cbd5e1"
+          style={{
+            opacity: 0.4,
+          }}
         />
       </ReactFlow>
     </div>
