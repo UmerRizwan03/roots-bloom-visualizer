@@ -10,6 +10,7 @@ import {
   Node,
   Controls,
   Background,
+  BackgroundVariant,
   MiniMap,
   Position,
 } from '@xyflow/react';
@@ -132,7 +133,7 @@ const FamilyTree: React.FC<FamilyTreeProps> = ({ onMemberSelect, searchQuery }) 
           position="bottom-right"
         />
         <Background 
-          variant="dots" 
+          variant={BackgroundVariant.Dots}
           gap={20} 
           size={1} 
           color="#d1fae5"
