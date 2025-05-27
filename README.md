@@ -36,6 +36,8 @@ npm i
 npm run dev
 ```
 
+After running this command, the application will be accessible at `http://localhost:8080`.
+
 **Edit a file directly in GitHub**
 
 - Navigate to the desired file(s).
