@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { FamilyMember } from '../types/family';
 import { Button } from './ui/button';
@@ -9,13 +8,14 @@ interface AddMemberFormProps {
   onAdd: (member: FamilyMember) => void;
   onCancel: () => void;
   existingMembers: FamilyMember[];
+  defaultGeneration?: number | null;
 }
 
-const AddMemberForm: React.FC<AddMemberFormProps> = ({ onAdd, onCancel, existingMembers }) => {
+const AddMemberForm: React.FC<AddMemberFormProps> = ({ onAdd, onCancel, existingMembers, defaultGeneration }) => {
   const [formData, setFormData] = useState<Partial<FamilyMember>>({
     name: '',
     gender: 'male',
-    generation: 1,
+    generation: defaultGeneration || 1,
     birthPlace: '',
     occupation: '',
     bio: '',
@@ -63,10 +63,17 @@ const AddMemberForm: React.FC<AddMemberFormProps> = ({ onAdd, onCancel, existing
     <Dialog open={true} onOpenChange={onCancel}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Add New Family Member</DialogTitle>
+          <DialogTitle className="text-2xl font-bold text-emerald-800">
+            Add New Family Member
+            {defaultGeneration && (
+              <span className="text-lg font-normal text-gray-600 ml-2">
+                to Generation {defaultGeneration}
+              </span>
+            )}
+          </DialogTitle>
         </DialogHeader>
         
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-6">
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium mb-2">Name *</label>
@@ -100,7 +107,14 @@ const AddMemberForm: React.FC<AddMemberFormProps> = ({ onAdd, onCancel, existing
                 onChange={(e) => handleInputChange('generation', parseInt(e.target.value))}
                 min="1"
                 max="10"
+                disabled={!!defaultGeneration}
+                className={defaultGeneration ? "bg-gray-50" : ""}
               />
+              {defaultGeneration && (
+                <p className="text-xs text-gray-500 mt-1">
+                  Generation is set based on your selection
+                </p>
+              )}
             </div>
             
             <div>
@@ -203,7 +217,7 @@ const AddMemberForm: React.FC<AddMemberFormProps> = ({ onAdd, onCancel, existing
             />
           </div>
 
-          <div className="flex justify-end space-x-3 pt-4">
+          <div className="flex justify-end space-x-3 pt-4 border-t">
             <Button type="button" variant="outline" onClick={onCancel}>
               Cancel
             </Button>

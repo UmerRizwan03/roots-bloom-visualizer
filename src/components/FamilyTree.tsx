@@ -21,7 +21,7 @@ import { FamilyMember } from '../types/family';
 import FamilyMemberNode from './FamilyMemberNode';
 import AddMemberForm from './AddMemberForm';
 import EditMemberForm from './EditMemberForm';
-import { Plus } from 'lucide-react';
+import GenerationAddButton from './GenerationAddButton';
 
 interface FamilyTreeProps {
   onMemberSelect: (member: FamilyMember) => void;
@@ -30,6 +30,7 @@ interface FamilyTreeProps {
 
 const nodeTypes = {
   familyMember: FamilyMemberNode,
+  generationAdd: GenerationAddButton,
 };
 
 const FamilyTree: React.FC<FamilyTreeProps> = ({ onMemberSelect, searchQuery }) => {
@@ -38,6 +39,7 @@ const FamilyTree: React.FC<FamilyTreeProps> = ({ onMemberSelect, searchQuery }) 
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingMember, setEditingMember] = useState<FamilyMember | null>(null);
   const [members, setMembers] = useState<FamilyMember[]>(familyMembers);
+  const [selectedGeneration, setSelectedGeneration] = useState<number | null>(null);
 
   const onConnect = useCallback(
     (params: Connection) => setEdges((eds) => addEdge(params, eds)),
@@ -47,6 +49,7 @@ const FamilyTree: React.FC<FamilyTreeProps> = ({ onMemberSelect, searchQuery }) 
   const handleAddMember = (newMember: FamilyMember) => {
     setMembers(prev => [...prev, newMember]);
     setShowAddForm(false);
+    setSelectedGeneration(null);
   };
 
   const handleEditMember = (updatedMember: FamilyMember) => {
@@ -60,10 +63,15 @@ const FamilyTree: React.FC<FamilyTreeProps> = ({ onMemberSelect, searchQuery }) 
     setMembers(prev => prev.filter(member => member.id !== memberId));
   };
 
+  const handleGenerationAdd = (generation: number) => {
+    setSelectedGeneration(generation);
+    setShowAddForm(true);
+  };
+
   useEffect(() => {
-    // Increased spacing for better visual separation
-    const generationSpacing = 280;
-    const memberSpacing = 260;
+    // Enhanced spacing for better visual separation
+    const generationSpacing = 320;
+    const memberSpacing = 280;
     const generationCounts = new Map();
     
     // Count members per generation
@@ -71,6 +79,9 @@ const FamilyTree: React.FC<FamilyTreeProps> = ({ onMemberSelect, searchQuery }) 
       const count = generationCounts.get(member.generation) || 0;
       generationCounts.set(member.generation, count + 1);
     });
+
+    // Get all unique generations
+    const generations = Array.from(new Set(members.map(m => m.generation))).sort();
 
     // Position members by generation
     const generationPositions = new Map();
@@ -80,7 +91,10 @@ const FamilyTree: React.FC<FamilyTreeProps> = ({ onMemberSelect, searchQuery }) 
       }
     });
 
-    const familyNodes: Node[] = members.map((member) => {
+    const familyNodes: Node[] = [];
+
+    // Add family member nodes
+    members.forEach((member) => {
       const generationIndex = member.generation - 1;
       const positionInGeneration = generationPositions.get(member.generation);
       const generationSize = generationCounts.get(member.generation);
@@ -93,7 +107,7 @@ const FamilyTree: React.FC<FamilyTreeProps> = ({ onMemberSelect, searchQuery }) 
       const isHighlighted = searchQuery && 
         member.name.toLowerCase().includes(searchQuery.toLowerCase());
 
-      return {
+      familyNodes.push({
         id: member.id,
         type: 'familyMember',
         position: { x, y },
@@ -106,10 +120,30 @@ const FamilyTree: React.FC<FamilyTreeProps> = ({ onMemberSelect, searchQuery }) 
         },
         sourcePosition: Position.Bottom,
         targetPosition: Position.Top,
-      };
+      });
     });
 
-    // Create edges with modern styling
+    // Add generation add buttons
+    generations.forEach(generation => {
+      const generationIndex = generation - 1;
+      const generationSize = generationCounts.get(generation);
+      const rightmostX = ((generationSize - 1) / 2) * memberSpacing + 140;
+      const y = generationIndex * generationSpacing;
+
+      familyNodes.push({
+        id: `add-gen-${generation}`,
+        type: 'generationAdd',
+        position: { x: rightmostX, y },
+        data: { 
+          generation,
+          onAdd: handleGenerationAdd
+        },
+        draggable: false,
+        selectable: false,
+      });
+    });
+
+    // Create edges with curvy, organic branch-like styling
     const familyEdges: Edge[] = familyConnections
       .filter(connection => 
         members.some(m => m.id === connection.source) && 
@@ -119,19 +153,25 @@ const FamilyTree: React.FC<FamilyTreeProps> = ({ onMemberSelect, searchQuery }) 
         id: connection.id,
         source: connection.source,
         target: connection.target,
-        type: connection.type === 'spouse' ? 'straight' : 'smoothstep',
+        type: connection.type === 'spouse' ? 'bezier' : 'bezier',
         style: {
-          stroke: connection.type === 'spouse' ? '#f59e0b' : '#64748b',
-          strokeWidth: connection.type === 'spouse' ? 3 : 2,
-          strokeDasharray: connection.type === 'spouse' ? '5,5' : undefined,
+          stroke: connection.type === 'spouse' ? '#d97706' : '#059669',
+          strokeWidth: connection.type === 'spouse' ? 4 : 3,
+          strokeLinecap: 'round' as const,
+          strokeDasharray: connection.type === 'spouse' ? '8,4' : undefined,
+          filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))',
         },
         animated: connection.type === 'parent',
         markerEnd: connection.type === 'parent' ? {
           type: MarkerType.ArrowClosed,
-          color: '#64748b',
-          width: 20,
-          height: 20,
+          color: '#059669',
+          width: 22,
+          height: 22,
         } : undefined,
+        pathOptions: {
+          offset: connection.type === 'spouse' ? 20 : 0,
+          borderRadius: connection.type === 'spouse' ? 40 : 30,
+        },
       }));
 
     setNodes(familyNodes);
@@ -149,29 +189,30 @@ const FamilyTree: React.FC<FamilyTreeProps> = ({ onMemberSelect, searchQuery }) 
         nodeTypes={nodeTypes}
         fitView
         fitViewOptions={{
-          padding: 0.3,
+          padding: 0.2,
           includeHiddenNodes: false,
         }}
-        defaultViewport={{ x: 0, y: 0, zoom: 0.6 }}
+        defaultViewport={{ x: 0, y: 0, zoom: 0.7 }}
         minZoom={0.1}
         maxZoom={1.5}
-        style={{ background: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)' }}
+        style={{ background: 'linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 50%, #f7fee7 100%)' }}
       >
         <Controls 
           position="top-right"
-          className="!bg-white/90 !backdrop-blur-sm !border !border-slate-200 !shadow-xl !rounded-xl"
+          className="!bg-white/90 !backdrop-blur-sm !border !border-emerald-200 !shadow-xl !rounded-xl"
           style={{
-            backgroundColor: 'white',
-            borderBottom: '1px solid #e2e8f0',
-            color: '#475569',
+            backgroundColor: 'rgba(255, 255, 255, 0.9)',
+            borderColor: '#a7f3d0',
+            color: '#065f46',
           }}
         />
         <MiniMap 
           nodeColor={(node) => {
+            if (node.type === 'generationAdd') return '#10b981';
             const member = (node.data as any).member as FamilyMember;
-            return member.gender === 'male' ? '#3b82f6' : '#ec4899';
+            return member?.gender === 'male' ? '#3b82f6' : '#ec4899';
           }}
-          className="!bg-white/90 !backdrop-blur-sm !border !border-slate-200 !shadow-xl !rounded-xl !overflow-hidden"
+          className="!bg-white/90 !backdrop-blur-sm !border !border-emerald-200 !shadow-xl !rounded-xl !overflow-hidden"
           position="bottom-right"
           style={{
             backgroundColor: 'rgba(255, 255, 255, 0.9)',
@@ -179,30 +220,25 @@ const FamilyTree: React.FC<FamilyTreeProps> = ({ onMemberSelect, searchQuery }) 
         />
         <Background 
           variant={BackgroundVariant.Dots}
-          gap={30} 
-          size={1.5} 
-          color="#cbd5e1"
+          gap={40} 
+          size={2} 
+          color="#a7f3d0"
           style={{
-            opacity: 0.4,
+            opacity: 0.3,
           }}
         />
       </ReactFlow>
-
-      {/* Add Member Button */}
-      <button
-        onClick={() => setShowAddForm(true)}
-        className="absolute top-4 left-4 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg shadow-lg flex items-center space-x-2 transition-colors z-10"
-      >
-        <Plus className="w-4 h-4" />
-        <span>Add Member</span>
-      </button>
 
       {/* Add Member Form */}
       {showAddForm && (
         <AddMemberForm
           onAdd={handleAddMember}
-          onCancel={() => setShowAddForm(false)}
+          onCancel={() => {
+            setShowAddForm(false);
+            setSelectedGeneration(null);
+          }}
           existingMembers={members}
+          defaultGeneration={selectedGeneration}
         />
       )}
 

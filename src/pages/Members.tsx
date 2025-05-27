@@ -1,11 +1,13 @@
-
-import React from 'react';
+import React, { useState } from 'react';
 import { familyMembers } from '../data/familyData';
 import { FamilyMember } from '../types/family';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
-import { User, Calendar, MapPin, Briefcase, Heart, Droplets, Phone, Mail } from 'lucide-react';
+import { User, Calendar, MapPin, Briefcase, Heart, Droplets, Phone, Mail, Search, X } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 const Members = () => {
+  const [searchQuery, setSearchQuery] = useState('');
+
   const getPartnerDetails = (member: FamilyMember) => {
     const partners: FamilyMember[] = [];
     
@@ -31,16 +33,76 @@ const Members = () => {
     return end.getFullYear() - birth.getFullYear();
   };
 
+  const filteredMembers = familyMembers.filter(member =>
+    member.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    member.occupation?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    member.birthPlace?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const clearSearch = () => {
+    setSearchQuery('');
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-green-50 py-8">
+      {/* Header */}
+      <header className="bg-white/80 backdrop-blur-sm border-b border-emerald-100 mb-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
+            <Link to="/" className="flex items-center space-x-3">
+              <span className="text-2xl font-bold text-emerald-800">FamilyRoots</span>
+            </Link>
+            <nav className="hidden md:flex space-x-8">
+              <Link to="/" className="text-gray-600 hover:text-emerald-600 transition-colors">Home</Link>
+              <Link to="/members" className="text-emerald-600 font-medium">Members</Link>
+              <Link to="/magazines" className="text-gray-600 hover:text-emerald-600 transition-colors">E-Magazines</Link>
+            </nav>
+          </div>
+        </div>
+      </header>
+
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-12">
+        <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-gray-900 mb-4">Family Members</h1>
-          <p className="text-xl text-gray-600">Meet all our wonderful family members</p>
+          <p className="text-xl text-gray-600 mb-6">Meet all our wonderful family members</p>
+          
+          {/* Search Bar */}
+          <div className="max-w-md mx-auto relative">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search family members..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-10 py-3 border border-gray-300 rounded-lg 
+                           focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 
+                           transition-colors bg-white shadow-sm"
+              />
+              {searchQuery && (
+                <button
+                  onClick={clearSearch}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 
+                             h-5 w-5 text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+            
+            {searchQuery && (
+              <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 
+                              rounded-lg shadow-lg z-10 p-2">
+                <div className="text-sm text-gray-600">
+                  Found {filteredMembers.length} member{filteredMembers.length !== 1 ? 's' : ''} matching: <span className="font-semibold text-emerald-600">"{searchQuery}"</span>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {familyMembers.map((member) => {
+          {filteredMembers.map((member) => {
             const partners = getPartnerDetails(member);
             const age = calculateAge(member.birthDate, member.deathDate);
 
@@ -176,6 +238,18 @@ const Members = () => {
             );
           })}
         </div>
+
+        {filteredMembers.length === 0 && searchQuery && (
+          <div className="text-center py-12">
+            <p className="text-gray-500 text-lg">No family members found matching "{searchQuery}"</p>
+            <button 
+              onClick={clearSearch}
+              className="mt-4 text-emerald-600 hover:text-emerald-700 font-medium"
+            >
+              Clear search
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
