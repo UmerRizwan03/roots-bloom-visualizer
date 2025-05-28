@@ -17,6 +17,7 @@ export interface FamilyMember {
   bloodType?: string;
   mobileNumber?: string;
   email?: string;
+  coParentName?: string; // Add this line
 }
 
 export interface FamilyConnection {

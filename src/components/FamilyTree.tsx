@@ -16,7 +16,7 @@ import {
   MarkerType,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { familyConnections } from '../data/familyData'; // Removed familyMembers import
+// Removed: import { familyConnections } from '../data/familyData';
 import { FamilyMember } from '../types/family';
 import FamilyMemberNode from './FamilyMemberNode';
 // Removed AddMemberForm import
@@ -110,40 +110,50 @@ const FamilyTree: React.FC<FamilyTreeProps> = ({ members, onMemberSelect, search
       });
     });
 
-    // Create edges with curvy, organic branch-like styling
-    const familyEdges: Edge[] = familyConnections
-      .filter(connection => 
-        members.some(m => m.id === connection.source) && 
-        members.some(m => m.id === connection.target)
-      )
-      .map((connection) => ({
-        id: connection.id,
-        source: connection.source,
-        target: connection.target,
-        type: connection.type === 'spouse' ? 'bezier' : 'bezier',
-        style: {
-          stroke: connection.type === 'spouse' ? '#d97706' : '#059669',
-          strokeWidth: connection.type === 'spouse' ? 4 : 3,
-          strokeLinecap: 'round' as const,
-          strokeDasharray: connection.type === 'spouse' ? '8,4' : undefined,
-          filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))',
-        },
-        animated: connection.type === 'parent',
-        markerEnd: connection.type === 'parent' ? {
-          type: MarkerType.ArrowClosed,
-          color: '#059669',
-          width: 22,
-          height: 22,
-        } : undefined,
-        pathOptions: {
-          offset: connection.type === 'spouse' ? 20 : 0,
-          borderRadius: connection.type === 'spouse' ? 40 : 30,
-        },
-      }));
+    // Create edges dynamically from members' parents field
+    const familyEdges: Edge[] = [];
+    const memberIds = new Set(members.map(m => m.id)); // For efficient lookup
+
+    members.forEach(member => {
+      if (member.parents && Array.isArray(member.parents)) {
+        member.parents.forEach(parentId => {
+          // Ensure both parent and child nodes exist before creating an edge
+          if (parentId && memberIds.has(parentId) && memberIds.has(member.id)) {
+            familyEdges.push({
+              id: `edge-${parentId}-to-${member.id}`,
+              source: parentId,
+              target: member.id,
+              type: 'bezier', // Or 'smoothstep' or other preferred type
+              animated: true,
+              markerEnd: {
+                type: MarkerType.ArrowClosed,
+                color: '#059669', // Style for parent-child arrow
+                width: 22,
+                height: 22,
+              },
+              style: {
+                stroke: '#059669', // Emerald color for parent-child connections
+                strokeWidth: 3,
+                strokeLinecap: 'round' as const,
+                filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))',
+              },
+              pathOptions: { // Optional: for curved paths
+                borderRadius: 30,
+              },
+            });
+          }
+        });
+      }
+      // Spouse/partner connections based on `member.partners` (array of names)
+      // or `member.spouse` (single ID) would require name-to-ID resolution
+      // or a change in how partner data is stored/processed.
+      // For this task, focusing only on parent-child edges from member.parents (IDs).
+      // Logic for spouse edges from the old familyConnections is removed.
+    });
 
     setNodes(familyNodes);
     setEdges(familyEdges);
-  }, [members, onMemberSelect, searchQuery]); // Adjusted useEffect dependencies
+  }, [members, onMemberSelect, searchQuery, onSetEditingMember, onDeleteMember]); // Added onSetEditingMember and onDeleteMember to dependencies
 
   return (
     <div className="w-full h-screen relative">

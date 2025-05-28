@@ -9,15 +9,24 @@ interface EditMemberFormProps {
   member: FamilyMember;
   onSave: (member: FamilyMember) => void;
   onCancel: () => void;
+  existingMembers: FamilyMember[]; // Added existingMembers prop
 }
 
-const EditMemberForm: React.FC<EditMemberFormProps> = ({ member, onSave, onCancel }) => {
-  const [formData, setFormData] = useState<FamilyMember>({
+const EditMemberForm: React.FC<EditMemberFormProps> = ({ member, onSave, onCancel, existingMembers }) => {
+  const [formData, setFormData] = useState<FamilyMember & { parentId?: string; spouseName?: string; otherPartnerNames?: string; coParentName?: string }>({
     ...member,
-    partners: member.partners || [], // Ensure partners is always an array
-    parents: member.parents || [], // Ensure parents is always an array
+    // partners: member.partners || [], // Old: Initialize with existing partner IDs
     children: member.children || [], // Ensure children is always an array
+    parentId: member.parents && member.parents.length > 0 ? member.parents[0] : '', // Initialize parentId
+    spouseName: '', // New: Starts blank for editing session
+    otherPartnerNames: '', // New: Starts blank for editing session
+    coParentName: member.coParentName || '', // Pre-fill from member.coParentName
   });
+
+  // Filter existingMembers to exclude the current member being edited
+  const selectableParents = Array.isArray(existingMembers)
+    ? existingMembers.filter(m => m.id !== member.id)
+    : [];
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,30 +36,34 @@ const EditMemberForm: React.FC<EditMemberFormProps> = ({ member, onSave, onCance
       return;
     }
 
-    // Ensure partners is an array of strings, splitting by comma if it's a string
-    const updatedFormData = {
-      ...formData,
-      partners: Array.isArray(formData.partners)
-        ? formData.partners
-        : (typeof formData.partners === 'string'
-          ? String(formData.partners).split(',').map(p => p.trim()).filter(p => p)
-          : []), // Fallback to empty array if not string or array
-      parents: Array.isArray(formData.parents)
-        ? formData.parents
-        : (typeof formData.parents === 'string'
-          ? String(formData.parents).split(',').map(p => p.trim()).filter(p => p)
-          : []), // Fallback to empty array if not string or array
-      children: Array.isArray(formData.children)
-        ? formData.children
-        : (typeof formData.children === 'string'
-          ? String(formData.children).split(',').map(p => p.trim()).filter(p => p)
-          : []), // Fallback to empty array if not string or array
+    const { 
+      parentId, 
+      spouseName, 
+      otherPartnerNames,
+      coParentName, // Destructure coParentName
+      // partners, // Exclude old partners from direct spread if it exists in formData type
+      ...memberSpecificFormData 
+    } = formData;
+
+    const calculatedPartners = [
+      spouseName?.trim(),
+      ...(otherPartnerNames?.split(',').map(name => name.trim()) || [])
+    ].filter(name => name && name.trim().length > 0);
+
+    const memberToSave: FamilyMember = {
+      ...memberSpecificFormData,
+      id: member.id, // Ensure original ID is preserved
+      parents: parentId ? [parentId] : [],
+      partners: calculatedPartners,
+      spouse: undefined, // Ensure spouse ID field is cleared/undefined
+      coParentName: coParentName?.trim() || undefined, // Add coParentName, trimmed or undefined
+      // children are already part of memberSpecificFormData if handled correctly by initial spread
     };
 
-    onSave(updatedFormData);
+    onSave(memberToSave);
   };
 
-  const handleInputChange = (field: keyof FamilyMember, value: any) => {
+  const handleInputChange = (field: keyof FamilyMember | 'parentId' | 'spouseName' | 'otherPartnerNames' | 'coParentName', value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
@@ -58,13 +71,13 @@ const EditMemberForm: React.FC<EditMemberFormProps> = ({ member, onSave, onCance
     <Dialog open={true} onOpenChange={onCancel}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Edit Family Member</DialogTitle>
+          <DialogTitle className="dark:text-emerald-300">Edit Family Member</DialogTitle>
         </DialogHeader>
         
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium mb-2">Name *</label>
+              <label className="block text-sm font-medium mb-2 dark:text-gray-300">Name *</label>
               <Input
                 value={formData.name}
                 onChange={(e) => handleInputChange('name', e.target.value)}
@@ -74,54 +87,90 @@ const EditMemberForm: React.FC<EditMemberFormProps> = ({ member, onSave, onCance
             </div>
             
             <div>
-              <label className="block text-sm font-medium mb-2">Gender</label>
+              <label className="block text-sm font-medium mb-2 dark:text-gray-300">Gender</label>
               <select
                 value={formData.gender}
                 onChange={(e) => handleInputChange('gender', e.target.value)}
-                className="w-full p-2 border border-gray-300 rounded-md"
+                className="w-full p-2 border border-gray-300 rounded-md dark:bg-slate-900 dark:text-slate-200 dark:border-slate-700 dark:focus:border-emerald-500 dark:focus:ring-1 dark:focus:ring-emerald-500"
               >
                 <option value="male">Male</option>
                 <option value="female">Female</option>
               </select>
             </div>
           </div>
-
-          {/* New input field for Partners */}
+          
+          {/* Spouse's Name Input */}
           <div>
-            <label className="block text-sm font-medium mb-2">Partners (comma-separated IDs)</label>
-            <textarea
-              value={Array.isArray(formData.partners) ? formData.partners.join(', ') : ''}
-              onChange={(e) => handleInputChange('partners', e.target.value)}
-              placeholder="e.g., partner1_id, partner2_id"
-              className="w-full p-2 border border-gray-300 rounded-md h-24 resize-none"
+            <label htmlFor="spouseName" className="block text-sm font-medium mb-2 dark:text-gray-300">
+              Spouse's Name
+            </label>
+            <Input
+              type="text"
+              id="spouseName"
+              name="spouseName"
+              value={formData.spouseName || ''}
+              onChange={(e) => handleInputChange('spouseName', e.target.value)}
+              placeholder="Spouse's full name"
             />
           </div>
 
-          {/* New input field for Parents */}
+          {/* Other Partner Names Textarea */}
           <div>
-            <label className="block text-sm font-medium mb-2">Parents (comma-separated IDs)</label>
+            <label htmlFor="otherPartnerNames" className="block text-sm font-medium mb-2 dark:text-gray-300">
+              Other Partner Names (comma-separated)
+            </label>
             <textarea
-              value={Array.isArray(formData.parents) ? formData.parents.join(', ') : ''}
-              onChange={(e) => handleInputChange('parents', e.target.value)}
-              placeholder="e.g., parent1_id, parent2_id"
-              className="w-full p-2 border border-gray-300 rounded-md h-24 resize-none"
+              id="otherPartnerNames"
+              name="otherPartnerNames"
+              rows={3}
+              value={formData.otherPartnerNames || ''}
+              onChange={(e) => handleInputChange('otherPartnerNames', e.target.value)}
+              placeholder="e.g., Partner A, Partner B"
+              className="w-full p-2 border border-gray-300 rounded-md dark:bg-slate-900 dark:text-slate-200 dark:border-slate-700 dark:placeholder-slate-500 dark:focus:border-emerald-500 dark:focus:ring-1 dark:focus:ring-emerald-500"
             />
           </div>
 
-          {/* New input field for Children */}
+          {/* Single Parent Dropdown */}
           <div>
-            <label className="block text-sm font-medium mb-2">Children (comma-separated IDs)</label>
-            <textarea
-              value={Array.isArray(formData.children) ? formData.children.join(', ') : ''}
-              onChange={(e) => handleInputChange('children', e.target.value)}
-              placeholder="e.g., child1_id, child2_id"
-              className="w-full p-2 border border-gray-300 rounded-md h-24 resize-none"
+            <label htmlFor="parentId" className="block text-sm font-medium mb-2 dark:text-gray-300">
+              Parent
+            </label>
+            <select
+              id="parentId"
+              name="parentId"
+              value={formData.parentId || ''}
+              onChange={(e) => handleInputChange('parentId', e.target.value)}
+              className="w-full p-2 border border-gray-300 rounded-md dark:bg-slate-900 dark:text-slate-200 dark:border-slate-700 dark:focus:border-emerald-500 dark:focus:ring-1 dark:focus:ring-emerald-500"
+            >
+              <option value="">Select a parent (optional)</option>
+              {selectableParents.map((potentialParent) => (
+                <option key={potentialParent.id} value={potentialParent.id}>
+                  {potentialParent.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Co-parent's Name Input */}
+          <div>
+            <label htmlFor="coParentName" className="block text-sm font-medium mb-2 dark:text-gray-300">
+              Co-parent's name (if different from spouse/partner)
+            </label>
+            <Input
+              type="text"
+              id="coParentName"
+              name="coParentName"
+              value={formData.coParentName || ''}
+              onChange={(e) => handleInputChange('coParentName', e.target.value)}
+              placeholder="Enter co-parent's name"
             />
           </div>
+
+          {/* Children (comma-separated IDs) input field removed */}
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium mb-2">Generation</label>
+              <label className="block text-sm font-medium mb-2 dark:text-gray-300">Generation</label>
               <Input
                 type="number"
                 value={formData.generation}
@@ -132,11 +181,11 @@ const EditMemberForm: React.FC<EditMemberFormProps> = ({ member, onSave, onCance
             </div>
             
             <div>
-              <label className="block text-sm font-medium mb-2">Blood Type</label>
+              <label className="block text-sm font-medium mb-2 dark:text-gray-300">Blood Type</label>
               <select
                 value={formData.bloodType || ''}
                 onChange={(e) => handleInputChange('bloodType', e.target.value)}
-                className="w-full p-2 border border-gray-300 rounded-md"
+                className="w-full p-2 border border-gray-300 rounded-md dark:bg-slate-900 dark:text-slate-200 dark:border-slate-700 dark:focus:border-emerald-500 dark:focus:ring-1 dark:focus:ring-emerald-500"
               >
                 <option value="">Select blood type</option>
                 <option value="A+">A+</option>
@@ -153,7 +202,7 @@ const EditMemberForm: React.FC<EditMemberFormProps> = ({ member, onSave, onCance
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium mb-2">Birth Date</label>
+              <label className="block text-sm font-medium mb-2 dark:text-gray-300">Birth Date</label>
               <Input
                 type="date"
                 value={formData.birthDate || ''}
@@ -162,7 +211,7 @@ const EditMemberForm: React.FC<EditMemberFormProps> = ({ member, onSave, onCance
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-2">Death Date</label>
+              <label className="block text-sm font-medium mb-2 dark:text-gray-300">Death Date</label>
               <Input
                 type="date"
                 value={formData.deathDate || ''}
@@ -173,7 +222,7 @@ const EditMemberForm: React.FC<EditMemberFormProps> = ({ member, onSave, onCance
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium mb-2">Mobile Number</label>
+              <label className="block text-sm font-medium mb-2 dark:text-gray-300">Mobile Number</label>
               <Input
                 value={formData.mobileNumber || ''}
                 onChange={(e) => handleInputChange('mobileNumber', e.target.value)}
@@ -182,7 +231,7 @@ const EditMemberForm: React.FC<EditMemberFormProps> = ({ member, onSave, onCance
             </div>
             
             <div>
-              <label className="block text-sm font-medium mb-2">Email Address</label>
+              <label className="block text-sm font-medium mb-2 dark:text-gray-300">Email Address</label>
               <Input
                 type="email"
                 value={formData.email || ''}
@@ -194,7 +243,7 @@ const EditMemberForm: React.FC<EditMemberFormProps> = ({ member, onSave, onCance
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium mb-2">Birth Place</label>
+              <label className="block text-sm font-medium mb-2 dark:text-gray-300">Birth Place</label>
               <Input
                 value={formData.birthPlace || ''}
                 onChange={(e) => handleInputChange('birthPlace', e.target.value)}
@@ -203,7 +252,7 @@ const EditMemberForm: React.FC<EditMemberFormProps> = ({ member, onSave, onCance
             </div>
             
             <div>
-              <label className="block text-sm font-medium mb-2">Occupation</label>
+              <label className="block text-sm font-medium mb-2 dark:text-gray-300">Occupation</label>
               <Input
                 value={formData.occupation || ''}
                 onChange={(e) => handleInputChange('occupation', e.target.value)}
@@ -213,17 +262,17 @@ const EditMemberForm: React.FC<EditMemberFormProps> = ({ member, onSave, onCance
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-2">Biography</label>
+            <label className="block text-sm font-medium mb-2 dark:text-gray-300">Biography</label>
             <textarea
               value={formData.bio || ''}
               onChange={(e) => handleInputChange('bio', e.target.value)}
               placeholder="Brief biography..."
-              className="w-full p-2 border border-gray-300 rounded-md h-24 resize-none"
+              className="w-full p-2 border border-gray-300 rounded-md h-24 resize-none dark:bg-slate-900 dark:text-slate-200 dark:border-slate-700 dark:placeholder-slate-500 dark:focus:border-emerald-500 dark:focus:ring-1 dark:focus:ring-emerald-500"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-2">Photo URL</label>
+            <label className="block text-sm font-medium mb-2 dark:text-gray-300">Photo URL</label>
             <Input
               value={formData.photo || ''}
               onChange={(e) => handleInputChange('photo', e.target.value)}

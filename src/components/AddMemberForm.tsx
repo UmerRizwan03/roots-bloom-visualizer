@@ -1,8 +1,16 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react'; // Ensure useState is imported
 import { FamilyMember } from '../types/family';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogHeader, 
+  DialogTitle, 
+  DialogDescription, 
+  DialogFooter, 
+  DialogTrigger 
+} from './ui/dialog';
 import {
   Select,
   SelectContent,
@@ -12,7 +20,7 @@ import {
 } from './ui/select';
 
 interface AddMemberFormProps {
-  onAdd: (memberData: Partial<FamilyMember>) => void; // Changed from FamilyMember
+  onAdd: (memberData: Partial<FamilyMember>) => Promise<void>; // Changed to reflect async nature
   onCancel: () => void;
   existingMembers: FamilyMember[];
   defaultGeneration?: number | null;
@@ -30,9 +38,14 @@ const AddMemberForm: React.FC<AddMemberFormProps> = ({ onAdd, onCancel, existing
     bloodType: '',
     mobileNumber: '',
     email: '',
-    partners: [], // Initialize partners as an empty array
+    // partners: [], // Removed, will be constructed from spouseName and otherPartnerNames
+    parentId: '', // New state for single Parent dropdown
+    spouseName: '', // New state for Spouse's Name
+    otherPartnerNames: '', // New state for Other Partner Names
+    coParentName: '', // New state for Co-parent's Name
   });
   const [generationHintMembers, setGenerationHintMembers] = useState<string[]>([]);
+  const [formError, setFormError] = useState<string | null>(null);
 
   const availableGenerations = useMemo(() => {
     const existingGens = new Set(existingMembers.map(m => m.generation));
@@ -77,40 +90,78 @@ const AddMemberForm: React.FC<AddMemberFormProps> = ({ onAdd, onCancel, existing
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData.generation, existingMembers]); // Re-run if generation or existingMembers change
 
-  const handleSubmit = () => {
-    if (!formData.name) return;
-    
-    const memberData = {
-      ...formData,
-      id: generateId(formData.name),
-      // Ensure partners is an array of strings, splitting by comma if it's a string
-      partners: typeof formData.partners === 'string'
-        ? (formData.partners as string).split(',').map(p => p.trim()).filter(p => p)
-        : formData.partners || [],
-      // Ensure parents is an array of strings, splitting by comma if it's a string
-      parents: typeof formData.parents === 'string'
-        ? (formData.parents as string).split(',').map(p => p.trim()).filter(p => p)
-        : formData.parents || [],
-      // Ensure children is an array of strings, splitting by comma if it's a string
-      children: typeof formData.children === 'string'
-        ? (formData.children as string).split(',').map(p => p.trim()).filter(p => p)
-        : formData.children || [],
+  const handleSubmit = async (e: React.FormEvent) => { // Make handleSubmit async
+    e.preventDefault();
+    setFormError(null); // Clear previous errors at the start
+
+    if (!formData.name?.trim()) {
+      setFormError("Name is required.");
+      return;
+    }
+
+    // Ensure generation is set, default to 1 if not provided or invalid.
+    // The problem description mentions defaultGeneration from props, let's use that.
+    // If defaultGeneration is null/undefined, or formData.generation is not a positive number,
+    // we might need a more robust fallback, but the original code used availableGenerations[0] or 1.
+    // For now, sticking to the logic provided in the task for generation.
+    const generation = formData.generation && formData.generation > 0 
+      ? formData.generation 
+      : (defaultGeneration || 1); // Use defaultGeneration from props or fallback to 1
+
+    const { 
+      // Destructure specific form fields that are not direct FamilyMember properties or need transformation
+      spouseName, 
+      otherPartnerNames, 
+      parentId,
+      coParentName, // Destructure coParentName
+      // Capture the rest of the formData that might align with FamilyMember properties
+      ...familyMemberSpecificFormData 
+    } = formData;
+
+    // Construct partners array from spouseName and otherPartnerNames
+    const calculatedPartners = [
+      spouseName?.trim(),
+      ...(otherPartnerNames?.split(',').map(name => name.trim()) || [])
+    ].filter(name => name && name.trim().length > 0); // Ensure names are non-empty and not just whitespace
+
+    const memberData: Partial<FamilyMember> = {
+      ...familyMemberSpecificFormData, // Spread fields like name, gender, bio, etc.
+      id: new Date().getTime().toString(), // Or use uuid if available and preferred
+      generation: generation,
+      partners: calculatedPartners, // Assign the processed array of names
+      parents: parentId ? [parentId] : [], // Parents array based on single parentId
+      children: [], // Children will always be empty for a new member through this form
+      spouse: undefined, // Explicitly set spouse (ID field) to undefined
+      coParentName: coParentName?.trim() || undefined, // Add coParentName, trimmed or undefined
     };
     
-    onAdd(memberData);
+    try {
+      await onAdd(memberData); // onAdd prop will now be an async function that can throw
+      // Parent (Index.tsx) is responsible for closing the modal on success.
+    } catch (err: any) {
+      // Display the error message from the parent or a generic one
+      setFormError(err.message || "Failed to add member. Please try again.");
+    }
   };
 
-  const handleInputChange = (field: keyof FamilyMember, value: any) => {
+  const handleInputChange = (field: keyof FamilyMember | 'parentId' | 'spouseName' | 'otherPartnerNames' | 'coParentName', value: any) => {
+    setFormError(null); // Clear error when user starts typing
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const generateId = (name: string) => {
-    return `${name.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}`;
-  };
+  // Removed generateId as id is now new Date().getTime().toString() or handled by parent
+  // const generateId = (name: string) => {
+  // return `${name.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}`;
+  // };
 
   return (
-    <Dialog open={true} onOpenChange={onCancel}>
-      <DialogContent 
+    <Dialog open={true} onOpenChange={(isOpen) => {
+      if (!isOpen) {
+        onCancel();
+        setFormError(null); // Clear error when dialog is closed
+      }
+    }}>
+      <DialogContent
         className="max-w-4xl max-h-[90vh] overflow-y-auto"
         aria-describedby="dialog-description"
       >
@@ -122,16 +173,23 @@ const AddMemberForm: React.FC<AddMemberFormProps> = ({ onAdd, onCancel, existing
             Form to add a new family member to the family tree
           </p>
         </DialogHeader>
+
+        {formError && (
+          <div className="my-2 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+            <p>{formError}</p>
+          </div>
+        )}
         
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium mb-2">Name *</label>
+
               <Input
                 value={formData.name || ''}
                 onChange={(e) => handleInputChange('name', e.target.value)}
                 placeholder="Full name"
-                required
+                // Removed 'required' here as we handle it in handleSubmit for better error message control
               />
             </div>
             
@@ -140,46 +198,84 @@ const AddMemberForm: React.FC<AddMemberFormProps> = ({ onAdd, onCancel, existing
               <select
                 value={formData.gender}
                 onChange={(e) => handleInputChange('gender', e.target.value)}
-                className="w-full p-2 border border-gray-300 rounded-md"
+                className="w-full p-2 border border-gray-300 rounded-md dark:bg-slate-900 dark:text-slate-200 dark:border-slate-700 dark:focus:border-emerald-500 dark:focus:ring-1 dark:focus:ring-emerald-500"
               >
                 <option value="male">Male</option>
                 <option value="female">Female</option>
               </select>
             </div>
           </div>
-
-          {/* New input field for Partners */}
+          
+          {/* Spouse's Name Input */}
           <div>
-            <label className="block text-sm font-medium mb-2">Partners (comma-separated IDs)</label>
-            <textarea
-              value={Array.isArray(formData.partners) ? formData.partners.join(', ') : ''}
-              onChange={(e) => handleInputChange('partners', e.target.value)}
-              placeholder="e.g., partner1_id, partner2_id"
-              className="w-full p-2 border border-gray-300 rounded-md h-24 resize-none"
+            <label htmlFor="spouseName" className="block text-sm font-medium mb-2 dark:text-gray-300">
+              Spouse's Name
+            </label>
+            <Input
+              type="text"
+              id="spouseName"
+              name="spouseName"
+              value={formData.spouseName || ''}
+              onChange={(e) => handleInputChange('spouseName' as any, e.target.value)}
+              placeholder="Spouse's full name"
+              // Assuming Input component already has appropriate dark theme styling from ui/input
             />
           </div>
 
-          {/* New input field for Parents */}
+          {/* Other Partner Names Textarea */}
           <div>
-            <label className="block text-sm font-medium mb-2">Parents (comma-separated IDs)</label>
+            <label htmlFor="otherPartnerNames" className="block text-sm font-medium mb-2 dark:text-gray-300">
+              Other Partner Names (comma-separated)
+            </label>
             <textarea
-              value={Array.isArray(formData.parents) ? formData.parents.join(', ') : ''}
-              onChange={(e) => handleInputChange('parents', e.target.value)}
-              placeholder="e.g., parent1_id, parent2_id"
-              className="w-full p-2 border border-gray-300 rounded-md h-24 resize-none"
+              id="otherPartnerNames"
+              name="otherPartnerNames"
+              rows={3}
+              value={formData.otherPartnerNames || ''}
+              onChange={(e) => handleInputChange('otherPartnerNames' as any, e.target.value)}
+              placeholder="e.g., Partner A, Partner B"
+              className="w-full p-2 border border-gray-300 rounded-md dark:bg-slate-900 dark:text-slate-200 dark:border-slate-700 dark:placeholder-slate-500 dark:focus:border-emerald-500 dark:focus:ring-1 dark:focus:ring-emerald-500"
             />
           </div>
 
-          {/* New input field for Children */}
+          {/* Single Parent Dropdown */}
           <div>
-            <label className="block text-sm font-medium mb-2">Children (comma-separated IDs)</label>
-            <textarea
-              value={Array.isArray(formData.children) ? formData.children.join(', ') : ''}
-              onChange={(e) => handleInputChange('children', e.target.value)}
-              placeholder="e.g., child1_id, child2_id"
-              className="w-full p-2 border border-gray-300 rounded-md h-24 resize-none"
+            <label htmlFor="parentId" className="block text-sm font-medium mb-2 dark:text-gray-300">
+              Parent
+            </label>
+            <select
+              id="parentId"
+              name="parentId" // Ensure name matches the state key for handleInputChange
+              value={formData.parentId || ''}
+              onChange={(e) => handleInputChange('parentId' as any, e.target.value)} // Cast 'parentId' for type safety if needed
+              className="w-full p-2 border border-gray-300 rounded-md dark:bg-slate-900 dark:text-slate-200 dark:border-slate-700 dark:focus:border-emerald-500 dark:focus:ring-1 dark:focus:ring-emerald-500"
+            >
+              <option value="">Select a parent (optional)</option>
+              {existingMembers.map((member) => (
+                <option key={member.id} value={member.id}>
+                  {member.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Co-parent's Name Input */}
+          <div>
+            <label htmlFor="coParentName" className="block text-sm font-medium mb-2 dark:text-gray-300">
+              Co-parent's name (if different from spouse/partner)
+            </label>
+            <Input
+              type="text"
+              id="coParentName"
+              name="coParentName"
+              value={formData.coParentName || ''}
+              onChange={(e) => handleInputChange('coParentName', e.target.value)}
+              placeholder="Enter co-parent's name"
+              // Assuming Input component already has appropriate dark theme styling from ui/input
             />
           </div>
+          
+          {/* Children input field removed */}
 
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -211,7 +307,7 @@ const AddMemberForm: React.FC<AddMemberFormProps> = ({ onAdd, onCancel, existing
               <select
                 value={formData.bloodType || ''}
                 onChange={(e) => handleInputChange('bloodType', e.target.value)}
-                className="w-full p-2 border border-gray-300 rounded-md"
+                className="w-full p-2 border border-gray-300 rounded-md dark:bg-slate-900 dark:text-slate-200 dark:border-slate-700 dark:focus:border-emerald-500 dark:focus:ring-1 dark:focus:ring-emerald-500"
               >
                 <option value="">Select blood type</option>
                 <option value="A+">A+</option>
@@ -291,12 +387,15 @@ const AddMemberForm: React.FC<AddMemberFormProps> = ({ onAdd, onCancel, existing
               onChange={(e) => handleInputChange('bio', e.target.value)}
               placeholder="A short biography..."
               rows={4}
-              className="w-full p-2 border border-gray-300 rounded-md"
+              className="w-full p-2 border border-gray-300 rounded-md dark:bg-slate-900 dark:text-slate-200 dark:border-slate-700 dark:placeholder-slate-500 dark:focus:border-emerald-500 dark:focus:ring-1 dark:focus:ring-emerald-500"
             ></textarea>
           </div>
 
           <div className="flex justify-end space-x-2">
-            <Button type="button" variant="outline" onClick={onCancel}>
+            <Button type="button" variant="outline" onClick={() => {
+              onCancel();
+              setFormError(null); // Clear error when cancelling
+            }}>
               Cancel
             </Button>
             <Button type="submit">
