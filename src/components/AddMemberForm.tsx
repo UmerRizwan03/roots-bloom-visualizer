@@ -1,11 +1,18 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { FamilyMember } from '../types/family';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from './ui/select';
 
 interface AddMemberFormProps {
-  onAdd: (member: FamilyMember) => void;
+  onAdd: (memberData: Partial<FamilyMember>) => void; // Changed from FamilyMember
   onCancel: () => void;
   existingMembers: FamilyMember[];
   defaultGeneration?: number | null;
@@ -13,64 +20,107 @@ interface AddMemberFormProps {
 
 const AddMemberForm: React.FC<AddMemberFormProps> = ({ onAdd, onCancel, existingMembers, defaultGeneration }) => {
   const [formData, setFormData] = useState<Partial<FamilyMember>>({
+    id: '',
     name: '',
     gender: 'male',
-    generation: defaultGeneration || 1,
+    generation: defaultGeneration || undefined, // Initialize as undefined to be set by useEffect
     birthPlace: '',
     occupation: '',
     bio: '',
     bloodType: '',
     mobileNumber: '',
     email: '',
+    partners: [], // Initialize partners as an empty array
   });
+  const [generationHintMembers, setGenerationHintMembers] = useState<string[]>([]);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!formData.name) {
-      alert('Name is required');
-      return;
+  const availableGenerations = useMemo(() => {
+    const existingGens = new Set(existingMembers.map(m => m.generation));
+    let maxGen = 1;
+    if (existingMembers.length > 0) {
+      maxGen = Math.max(...Array.from(existingGens));
     }
+    // Generate generations from 1 up to maxGen + 2 (to allow adding to next few generations)
+    const allGens = Array.from({ length: maxGen + 2 }, (_, i) => i + 1);
+    return allGens.sort((a, b) => a - b);
+  }, [existingMembers]);
 
-    const newMember: FamilyMember = {
-      id: `member-${Date.now()}`,
-      name: formData.name,
-      gender: formData.gender as 'male' | 'female',
-      generation: formData.generation || 1,
-      birthDate: formData.birthDate,
-      deathDate: formData.deathDate,
-      birthPlace: formData.birthPlace,
-      occupation: formData.occupation,
-      bio: formData.bio,
-      photo: formData.photo,
-      parents: formData.parents,
-      children: formData.children,
-      spouse: formData.spouse,
-      partners: formData.partners,
-      bloodType: formData.bloodType,
-      mobileNumber: formData.mobileNumber,
-      email: formData.email,
+  useEffect(() => {
+    // If defaultGeneration is provided, use it. Otherwise, default to the first available generation (which will be 1).
+    if (defaultGeneration !== undefined && defaultGeneration !== null) {
+      handleInputChange('generation', defaultGeneration);
+    } else if (formData.generation === undefined) {
+      handleInputChange('generation', availableGenerations[0] || 1);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [availableGenerations, defaultGeneration]); // Dependencies are correct, want to run when these change
+
+  const handleGenerationChange = (value: string) => {
+      const genNumber = parseInt(value, 10);
+      handleInputChange('generation', genNumber);
+
+      const membersInGeneration = existingMembers
+          .filter(m => m.generation === genNumber)
+          .slice(0, 5) // Get first 5 members for the hint
+          .map(m => m.name);
+      setGenerationHintMembers(membersInGeneration);
+  };
+
+  useEffect(() => {
+      if (formData.generation) {
+          const membersInGeneration = existingMembers
+              .filter(m => m.generation === formData.generation)
+              .slice(0, 5)
+              .map(m => m.name);
+          setGenerationHintMembers(membersInGeneration);
+      }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.generation, existingMembers]); // Re-run if generation or existingMembers change
+
+  const handleSubmit = () => {
+    if (!formData.name) return;
+    
+    const memberData = {
+      ...formData,
+      id: generateId(formData.name),
+      // Ensure partners is an array of strings, splitting by comma if it's a string
+      partners: typeof formData.partners === 'string'
+        ? (formData.partners as string).split(',').map(p => p.trim()).filter(p => p)
+        : formData.partners || [],
+      // Ensure parents is an array of strings, splitting by comma if it's a string
+      parents: typeof formData.parents === 'string'
+        ? (formData.parents as string).split(',').map(p => p.trim()).filter(p => p)
+        : formData.parents || [],
+      // Ensure children is an array of strings, splitting by comma if it's a string
+      children: typeof formData.children === 'string'
+        ? (formData.children as string).split(',').map(p => p.trim()).filter(p => p)
+        : formData.children || [],
     };
-
-    onAdd(newMember);
+    
+    onAdd(memberData);
   };
 
   const handleInputChange = (field: keyof FamilyMember, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
+  const generateId = (name: string) => {
+    return `${name.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}`;
+  };
+
   return (
     <Dialog open={true} onOpenChange={onCancel}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent 
+        className="max-w-4xl max-h-[90vh] overflow-y-auto"
+        aria-describedby="dialog-description"
+      >
         <DialogHeader>
           <DialogTitle className="text-2xl font-bold text-emerald-800">
             Add New Family Member
-            {defaultGeneration && (
-              <span className="text-lg font-normal text-gray-600 ml-2">
-                to Generation {defaultGeneration}
-              </span>
-            )}
           </DialogTitle>
+          <p id="dialog-description" className="sr-only">
+            Form to add a new family member to the family tree
+          </p>
         </DialogHeader>
         
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -98,21 +148,60 @@ const AddMemberForm: React.FC<AddMemberFormProps> = ({ onAdd, onCancel, existing
             </div>
           </div>
 
+          {/* New input field for Partners */}
+          <div>
+            <label className="block text-sm font-medium mb-2">Partners (comma-separated IDs)</label>
+            <textarea
+              value={Array.isArray(formData.partners) ? formData.partners.join(', ') : ''}
+              onChange={(e) => handleInputChange('partners', e.target.value)}
+              placeholder="e.g., partner1_id, partner2_id"
+              className="w-full p-2 border border-gray-300 rounded-md h-24 resize-none"
+            />
+          </div>
+
+          {/* New input field for Parents */}
+          <div>
+            <label className="block text-sm font-medium mb-2">Parents (comma-separated IDs)</label>
+            <textarea
+              value={Array.isArray(formData.parents) ? formData.parents.join(', ') : ''}
+              onChange={(e) => handleInputChange('parents', e.target.value)}
+              placeholder="e.g., parent1_id, parent2_id"
+              className="w-full p-2 border border-gray-300 rounded-md h-24 resize-none"
+            />
+          </div>
+
+          {/* New input field for Children */}
+          <div>
+            <label className="block text-sm font-medium mb-2">Children (comma-separated IDs)</label>
+            <textarea
+              value={Array.isArray(formData.children) ? formData.children.join(', ') : ''}
+              onChange={(e) => handleInputChange('children', e.target.value)}
+              placeholder="e.g., child1_id, child2_id"
+              className="w-full p-2 border border-gray-300 rounded-md h-24 resize-none"
+            />
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium mb-2">Generation</label>
-              <Input
-                type="number"
-                value={formData.generation || 1}
-                onChange={(e) => handleInputChange('generation', parseInt(e.target.value))}
-                min="1"
-                max="10"
-                disabled={!!defaultGeneration}
-                className={defaultGeneration ? "bg-gray-50" : ""}
-              />
-              {defaultGeneration && (
+              <label htmlFor="generation-select" className="block text-sm font-medium mb-2">Generation</label>
+              <Select
+                value={String(formData.generation || '')}
+                onValueChange={handleGenerationChange}
+              >
+                <SelectTrigger id="generation-select" className="w-full">
+                  <SelectValue placeholder="Select generation" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableGenerations.map(gen => (
+                    <SelectItem key={gen} value={String(gen)}>
+                      Generation {gen}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {generationHintMembers.length > 0 && (
                 <p className="text-xs text-gray-500 mt-1">
-                  Generation is set based on your selection
+                  Includes: {generationHintMembers.join(', ')}
                 </p>
               )}
             </div>
@@ -163,65 +252,54 @@ const AddMemberForm: React.FC<AddMemberFormProps> = ({ onAdd, onCancel, existing
               <Input
                 value={formData.mobileNumber || ''}
                 onChange={(e) => handleInputChange('mobileNumber', e.target.value)}
-                placeholder="+1-555-0123"
+                placeholder="e.g., +1234567890"
               />
             </div>
-            
             <div>
-              <label className="block text-sm font-medium mb-2">Email Address</label>
+              <label className="block text-sm font-medium mb-2">Email</label>
               <Input
                 type="email"
                 value={formData.email || ''}
                 onChange={(e) => handleInputChange('email', e.target.value)}
-                placeholder="email@example.com"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium mb-2">Birth Place</label>
-              <Input
-                value={formData.birthPlace || ''}
-                onChange={(e) => handleInputChange('birthPlace', e.target.value)}
-                placeholder="City, State/Country"
-              />
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium mb-2">Occupation</label>
-              <Input
-                value={formData.occupation || ''}
-                onChange={(e) => handleInputChange('occupation', e.target.value)}
-                placeholder="Job title"
+                placeholder="e.g., example@example.com"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-2">Biography</label>
+            <label className="block text-sm font-medium mb-2">Birth Place</label>
+            <Input
+              value={formData.birthPlace || ''}
+              onChange={(e) => handleInputChange('birthPlace', e.target.value)}
+              placeholder="City, Country"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-2">Occupation</label>
+            <Input
+              value={formData.occupation || ''}
+              onChange={(e) => handleInputChange('occupation', e.target.value)}
+              placeholder="e.g., Engineer, Artist"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-2">Bio</label>
             <textarea
               value={formData.bio || ''}
               onChange={(e) => handleInputChange('bio', e.target.value)}
-              placeholder="Brief biography..."
-              className="w-full p-2 border border-gray-300 rounded-md h-24 resize-none"
-            />
+              placeholder="A short biography..."
+              rows={4}
+              className="w-full p-2 border border-gray-300 rounded-md"
+            ></textarea>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium mb-2">Photo URL</label>
-            <Input
-              value={formData.photo || ''}
-              onChange={(e) => handleInputChange('photo', e.target.value)}
-              placeholder="https://..."
-            />
-          </div>
-
-          <div className="flex justify-end space-x-3 pt-4 border-t">
+          <div className="flex justify-end space-x-2">
             <Button type="button" variant="outline" onClick={onCancel}>
               Cancel
             </Button>
-            <Button type="submit" className="bg-emerald-600 hover:bg-emerald-700">
+            <Button type="submit">
               Add Member
             </Button>
           </div>

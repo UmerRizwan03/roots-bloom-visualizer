@@ -12,7 +12,12 @@ interface EditMemberFormProps {
 }
 
 const EditMemberForm: React.FC<EditMemberFormProps> = ({ member, onSave, onCancel }) => {
-  const [formData, setFormData] = useState<FamilyMember>(member);
+  const [formData, setFormData] = useState<FamilyMember>({
+    ...member,
+    partners: member.partners || [], // Ensure partners is always an array
+    parents: member.parents || [], // Ensure parents is always an array
+    children: member.children || [], // Ensure children is always an array
+  });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -22,7 +27,27 @@ const EditMemberForm: React.FC<EditMemberFormProps> = ({ member, onSave, onCance
       return;
     }
 
-    onSave(formData);
+    // Ensure partners is an array of strings, splitting by comma if it's a string
+    const updatedFormData = {
+      ...formData,
+      partners: Array.isArray(formData.partners)
+        ? formData.partners
+        : (typeof formData.partners === 'string'
+          ? String(formData.partners).split(',').map(p => p.trim()).filter(p => p)
+          : []), // Fallback to empty array if not string or array
+      parents: Array.isArray(formData.parents)
+        ? formData.parents
+        : (typeof formData.parents === 'string'
+          ? String(formData.parents).split(',').map(p => p.trim()).filter(p => p)
+          : []), // Fallback to empty array if not string or array
+      children: Array.isArray(formData.children)
+        ? formData.children
+        : (typeof formData.children === 'string'
+          ? String(formData.children).split(',').map(p => p.trim()).filter(p => p)
+          : []), // Fallback to empty array if not string or array
+    };
+
+    onSave(updatedFormData);
   };
 
   const handleInputChange = (field: keyof FamilyMember, value: any) => {
@@ -59,6 +84,39 @@ const EditMemberForm: React.FC<EditMemberFormProps> = ({ member, onSave, onCance
                 <option value="female">Female</option>
               </select>
             </div>
+          </div>
+
+          {/* New input field for Partners */}
+          <div>
+            <label className="block text-sm font-medium mb-2">Partners (comma-separated IDs)</label>
+            <textarea
+              value={Array.isArray(formData.partners) ? formData.partners.join(', ') : ''}
+              onChange={(e) => handleInputChange('partners', e.target.value)}
+              placeholder="e.g., partner1_id, partner2_id"
+              className="w-full p-2 border border-gray-300 rounded-md h-24 resize-none"
+            />
+          </div>
+
+          {/* New input field for Parents */}
+          <div>
+            <label className="block text-sm font-medium mb-2">Parents (comma-separated IDs)</label>
+            <textarea
+              value={Array.isArray(formData.parents) ? formData.parents.join(', ') : ''}
+              onChange={(e) => handleInputChange('parents', e.target.value)}
+              placeholder="e.g., parent1_id, parent2_id"
+              className="w-full p-2 border border-gray-300 rounded-md h-24 resize-none"
+            />
+          </div>
+
+          {/* New input field for Children */}
+          <div>
+            <label className="block text-sm font-medium mb-2">Children (comma-separated IDs)</label>
+            <textarea
+              value={Array.isArray(formData.children) ? formData.children.join(', ') : ''}
+              onChange={(e) => handleInputChange('children', e.target.value)}
+              placeholder="e.g., child1_id, child2_id"
+              className="w-full p-2 border border-gray-300 rounded-md h-24 resize-none"
+            />
           </div>
 
           <div className="grid grid-cols-2 gap-4">

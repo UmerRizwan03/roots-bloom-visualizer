@@ -16,57 +16,44 @@ import {
   MarkerType,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { familyMembers, familyConnections } from '../data/familyData';
+import { familyConnections } from '../data/familyData'; // Removed familyMembers import
 import { FamilyMember } from '../types/family';
 import FamilyMemberNode from './FamilyMemberNode';
-import AddMemberForm from './AddMemberForm';
-import EditMemberForm from './EditMemberForm';
-import GenerationAddButton from './GenerationAddButton';
+// Removed AddMemberForm import
+// Removed EditMemberForm import
 
 interface FamilyTreeProps {
+  members: FamilyMember[]; // Added members prop
   onMemberSelect: (member: FamilyMember) => void;
   searchQuery: string;
+  onSetEditingMember: (member: FamilyMember) => void; // Added prop
+  onDeleteMember: (memberId: string) => void;      // Added prop
 }
 
 const nodeTypes = {
   familyMember: FamilyMemberNode,
-  generationAdd: GenerationAddButton,
 };
 
-const FamilyTree: React.FC<FamilyTreeProps> = ({ onMemberSelect, searchQuery }) => {
+const FamilyTree: React.FC<FamilyTreeProps> = ({ members, onMemberSelect, searchQuery, onSetEditingMember, onDeleteMember }) => { // Added new props to destructuring
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [editingMember, setEditingMember] = useState<FamilyMember | null>(null);
-  const [members, setMembers] = useState<FamilyMember[]>(familyMembers);
-  const [selectedGeneration, setSelectedGeneration] = useState<number | null>(null);
+  // Removed showAddForm state
+  // Removed editingMember state
+  // Removed local members state
+  // Removed selectedGeneration state
 
   const onConnect = useCallback(
     (params: Connection) => setEdges((eds) => addEdge(params, eds)),
     [setEdges]
   );
 
-  const handleAddMember = (newMember: FamilyMember) => {
-    setMembers(prev => [...prev, newMember]);
-    setShowAddForm(false);
-    setSelectedGeneration(null);
-  };
+  // Removed handleAddMember function
 
-  const handleEditMember = (updatedMember: FamilyMember) => {
-    setMembers(prev => prev.map(member => 
-      member.id === updatedMember.id ? updatedMember : member
-    ));
-    setEditingMember(null);
-  };
+  // Removed handleEditMember function (as it used local setEditingMember and setMembers)
 
-  const handleDeleteMember = (memberId: string) => {
-    setMembers(prev => prev.filter(member => member.id !== memberId));
-  };
+  // Removed local handleDeleteMember function
 
-  const handleGenerationAdd = (generation: number) => {
-    setSelectedGeneration(generation);
-    setShowAddForm(true);
-  };
+  // Removed handleGenerationAdd function
 
   useEffect(() => {
     // Enhanced spacing for better visual separation
@@ -114,32 +101,12 @@ const FamilyTree: React.FC<FamilyTreeProps> = ({ onMemberSelect, searchQuery }) 
         data: { 
           member,
           onSelect: onMemberSelect,
-          onEdit: setEditingMember,
-          onDelete: handleDeleteMember,
+          onEdit: onSetEditingMember,  // Use prop
+          onDelete: onDeleteMember, // Use prop
           isHighlighted
         },
         sourcePosition: Position.Bottom,
         targetPosition: Position.Top,
-      });
-    });
-
-    // Add generation add buttons
-    generations.forEach(generation => {
-      const generationIndex = generation - 1;
-      const generationSize = generationCounts.get(generation);
-      const rightmostX = ((generationSize - 1) / 2) * memberSpacing + 140;
-      const y = generationIndex * generationSpacing;
-
-      familyNodes.push({
-        id: `add-gen-${generation}`,
-        type: 'generationAdd',
-        position: { x: rightmostX, y },
-        data: { 
-          generation,
-          onAdd: handleGenerationAdd
-        },
-        draggable: false,
-        selectable: false,
       });
     });
 
@@ -176,10 +143,10 @@ const FamilyTree: React.FC<FamilyTreeProps> = ({ onMemberSelect, searchQuery }) 
 
     setNodes(familyNodes);
     setEdges(familyEdges);
-  }, [onMemberSelect, searchQuery, members]);
+  }, [members, onMemberSelect, searchQuery]); // Adjusted useEffect dependencies
 
   return (
-    <div className="w-full h-full relative">
+    <div className="w-full h-screen relative">
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -229,27 +196,7 @@ const FamilyTree: React.FC<FamilyTreeProps> = ({ onMemberSelect, searchQuery }) 
         />
       </ReactFlow>
 
-      {/* Add Member Form */}
-      {showAddForm && (
-        <AddMemberForm
-          onAdd={handleAddMember}
-          onCancel={() => {
-            setShowAddForm(false);
-            setSelectedGeneration(null);
-          }}
-          existingMembers={members}
-          defaultGeneration={selectedGeneration}
-        />
-      )}
-
-      {/* Edit Member Form */}
-      {editingMember && (
-        <EditMemberForm
-          member={editingMember}
-          onSave={handleEditMember}
-          onCancel={() => setEditingMember(null)}
-        />
-      )}
+      {/* EditMemberForm rendering removed */}
     </div>
   );
 };
