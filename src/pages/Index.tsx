@@ -51,16 +51,26 @@ const Index = () => {
       generation: memberData.generation || 1
     };
 
+    // Ensure generation is a number; fallback to 1 if not provided or invalid
+    const finalPayload = {
+      ...payload,
+      generation: typeof memberData.generation === 'number' && memberData.generation > 0 
+                    ? memberData.generation 
+                    : 1,
+    };
+
     const { error } = await supabase
       .from('family_members')
-      .insert([payload]);
+      .insert([finalPayload]); // Use finalPayload here
 
     if (error) {
       console.error('Error adding member:', error);
-      setFetchError(`Failed to add member: ${error.message}`);
+      setFetchError(`Failed to add member: ${error.message}`); // You might also use a toast here
+      throw error; // IMPORTANT: Re-throw the error to be caught by AddMemberForm
     } else {
-      await fetchMembers();
-      setIsAddMemberModalOpen(false);
+      await fetchMembers(); // Re-fetch members on success
+      setIsAddMemberModalOpen(false); // Close modal on success
+      // Optionally, show a success toast here
     }
   };
 
