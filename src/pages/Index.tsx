@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { TreePine, UserPlus } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -22,7 +22,7 @@ const Index = () => {
   const [fetchError, setFetchError] = useState<string | null>(null);
 
   // Extracted fetchMembers function
-  const fetchMembers = async () => {
+  const fetchMembers = useCallback(async () => {
     setIsLoading(true);
     setFetchError(null);
     const { data, error } = await supabase
@@ -33,15 +33,16 @@ const Index = () => {
       setFetchError(error.message);
       setMembers([]);
     } else {
-      setMembers(data as FamilyMember[]); 
-    }   setIsLoading(false);
-  };
+      setMembers([...data] as FamilyMember[]);
+    }
+    setIsLoading(false);
+  }, []); // setIsLoading, setFetchError, setMembers are stable
 
   useEffect(() => {
     fetchMembers();
-  }, []); // Empty dependency array to run once on mount
+  }, [fetchMembers]); // fetchMembers is now a dependency
 
-  const handleAddMember = async (memberData: Partial<FamilyMember>) => {
+  const handleAddMember = useCallback(async (memberData: Partial<FamilyMember>) => {
     // Generate a unique ID
     const id = uuidv4(); // Using uuidv4 for unique ID generation
     
@@ -72,13 +73,13 @@ const Index = () => {
       setIsAddMemberModalOpen(false); // Close modal on success
       // Optionally, show a success toast here
     }
-  };
+  }, [fetchMembers]); // setIsAddMemberModalOpen is stable
 
-  const handleSetEditingMember = (member: FamilyMember | null) => {
+  const handleSetEditingMember = useCallback((member: FamilyMember | null) => {
     setEditingMember(member);
-  };
+  }, []); // setEditingMember is stable
 
-  const handleSaveEditedMember = async (updatedMember: FamilyMember) => {
+  const handleSaveEditedMember = useCallback(async (updatedMember: FamilyMember) => {
     // Optional: Add a new loading state like setIsEditing(true);
     const { id, ...dataToUpdate } = updatedMember;
 
@@ -95,9 +96,9 @@ const Index = () => {
       setEditingMember(null); // Close the modal on success
     }
     // Optional: setIsEditing(false);
-  };
+  }, [fetchMembers]); // setEditingMember is stable
 
-  const handleDeleteMember = async (memberId: string) => {
+  const handleDeleteMember = useCallback(async (memberId: string) => {
     // Optional: Add a new loading state like setIsDeleting(true);
 
     const { error } = await supabase
@@ -127,15 +128,15 @@ const Index = () => {
       }
     }
     // Optional: setIsDeleting(false);
-  };
+  }, [fetchMembers, selectedMember, editingMember]); // setSelectedMember, setEditingMember are stable
 
-  const handleMemberSelect = (member: FamilyMember) => {
+  const handleMemberSelect = useCallback((member: FamilyMember) => {
     setSelectedMember(member);
-  };
+  }, []); // setSelectedMember is stable
 
-  const handleCloseModal = () => {
+  const handleCloseModal = useCallback(() => {
     setSelectedMember(null);
-  };
+  }, []); // setSelectedMember is stable
 
   if (isLoading) {
     return <div className="flex justify-center items-center min-h-screen">Loading family data...</div>;
@@ -174,8 +175,8 @@ const Index = () => {
         </div>
       </header>
 
-      {/* Family Tree Section */}
-      <section className="relative overflow-hidden py-8">
+      {/* Section for Title/Description (constrained width) */}
+      <section className="pt-8"> {/* Top padding for this section */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-8">
             <h2 className="text-4xl md:text-6xl font-bold text-gray-900 dark:text-slate-100 mb-4">
@@ -186,20 +187,24 @@ const Index = () => {
               Explore our family connections and discover the stories that connect us across generations.
             </p>
           </div>
+        </div>
+      </section>
 
-          {/* Interactive Family Tree */}
-          <div className="relative">
-            <div className="bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm rounded-3xl shadow-2xl border border-slate-200/50 dark:border-slate-700/50 overflow-hidden">
-              <div className="h-[650px] relative overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:from-slate-800 dark:via-slate-900 dark:to-black" />
-                <FamilyTree 
-                  members={members}
-                  onMemberSelect={handleMemberSelect}
-                  searchQuery=""
-                  onSetEditingMember={handleSetEditingMember} // Add this
-                  onDeleteMember={handleDeleteMember}     // Add this
-                />
-              </div>
+      {/* Section for Family Tree (full width with its own padding) */}
+      <section className="relative overflow-hidden pb-8 px-4 sm:px-6 lg:px-8"> {/* Bottom and horizontal padding for this section */}
+        {/* Interactive Family Tree wrapper - this div is now effectively full-width relative to its section padding */}
+        <div className="relative">
+          <div className="bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm rounded-3xl shadow-2xl border border-slate-200/50 dark:border-slate-700/50 overflow-hidden">
+            {/* The h-[650px] w-full div remains, allowing FamilyTree to fill this container */}
+            <div className="h-[650px] w-full relative overflow-hidden"> 
+              <div className="absolute inset-0 bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:from-slate-800 dark:via-slate-900 dark:to-black" />
+              <FamilyTree 
+                members={members}
+                onMemberSelect={handleMemberSelect}
+                searchQuery=""
+                onSetEditingMember={handleSetEditingMember} 
+                onDeleteMember={handleDeleteMember}     
+              />
             </div>
           </div>
         </div>
