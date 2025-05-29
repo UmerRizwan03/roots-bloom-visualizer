@@ -18,6 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from './ui/select';
+import { cn } from "@/lib/utils"; // Import cn
 
 interface AddMemberFormProps {
   onAdd: (memberData: Partial<FamilyMember>) => Promise<void>; // Changed to reflect async nature
@@ -162,7 +163,7 @@ const AddMemberForm: React.FC<AddMemberFormProps> = ({ onAdd, onCancel, existing
       }
     }}>
       <DialogContent
-        className="max-w-4xl max-h-[90vh] overflow-y-auto"
+        className={cn("max-w-4xl max-h-[90vh] overflow-y-auto", "z-[55]")} // Added z-[55]
         aria-describedby="dialog-description"
       >
         <DialogHeader>

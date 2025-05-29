@@ -18,6 +18,7 @@ export interface FamilyMember {
   mobileNumber?: string;
   email?: string;
   coParentName?: string; // Add this line
+  isCollapsed?: boolean; // Optional: for UI state, true if children are collapsed
 }
 
 export interface FamilyConnection {

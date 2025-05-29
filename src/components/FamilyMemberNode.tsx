@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Handle, Position } from '@xyflow/react';
-import { User, Calendar, MapPin, Briefcase, Edit, Trash2 } from 'lucide-react';
+import { User, Calendar, MapPin, Briefcase, Edit, Trash2, PlusCircle, MinusCircle } from 'lucide-react'; // Added PlusCircle, MinusCircle
 import { FamilyMember } from '../types/family';
 
 interface FamilyMemberNodeProps {
@@ -11,11 +11,23 @@ interface FamilyMemberNodeProps {
     onEdit: (member: FamilyMember) => void;
     onDelete: (memberId: string) => void;
     isHighlighted?: boolean;
+    isCollapsed?: boolean; // Added isCollapsed
+    onToggleCollapse?: (memberId: string) => void; // Added onToggleCollapse
+    hasChildren?: boolean; // Added hasChildren
   };
 }
 
 const FamilyMemberNode: React.FC<FamilyMemberNodeProps> = ({ data }) => {
-  const { member, onSelect, onEdit, onDelete, isHighlighted } = data;
+  const { 
+    member, 
+    onSelect, 
+    onEdit, 
+    onDelete, 
+    isHighlighted,
+    isCollapsed,
+    onToggleCollapse,
+    hasChildren 
+  } = data;
 
   const handleClick = () => {
     onSelect(member);
@@ -38,6 +50,13 @@ const FamilyMemberNode: React.FC<FamilyMemberNodeProps> = ({ data }) => {
   const deathYear = member.deathDate ? new Date(member.deathDate).getFullYear() : null;
   const age = deathYear ? deathYear - (birthYear || 0) : (birthYear ? currentYear - birthYear : null);
 
+  const handleToggleCollapse = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onToggleCollapse) {
+      onToggleCollapse(member.id);
+    }
+  };
+
   return (
     <div className="family-member-node">
       <Handle
@@ -53,6 +72,7 @@ const FamilyMemberNode: React.FC<FamilyMemberNodeProps> = ({ data }) => {
           cursor-pointer transition-all duration-300 hover:shadow-xl hover:-translate-y-1
           overflow-hidden group
           ${isHighlighted ? 'ring-2 ring-amber-400 shadow-amber-200/50' : ''}
+          ${isCollapsed ? 'opacity-80' : ''} 
         `}
       >
         {/* Action Buttons */}
@@ -138,6 +158,27 @@ const FamilyMemberNode: React.FC<FamilyMemberNodeProps> = ({ data }) => {
 
         {/* Hover effect overlay */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-2xl" />
+      
+        {/* Collapse/Expand Button */}
+        {hasChildren && onToggleCollapse && (
+          <button
+            onClick={handleToggleCollapse}
+            className={`
+              absolute -bottom-3 left-1/2 -translate-x-1/2 
+              w-7 h-7 rounded-full border-2 border-white
+              flex items-center justify-center shadow-md
+              transition-all duration-200 hover:scale-110 z-20
+              ${isCollapsed ? 'bg-emerald-500 hover:bg-emerald-600' : 'bg-sky-500 hover:bg-sky-600'}
+            `}
+            aria-label={isCollapsed ? 'Expand children' : 'Collapse children'}
+          >
+            {isCollapsed ? (
+              <PlusCircle className="w-4 h-4 text-white" />
+            ) : (
+              <MinusCircle className="w-4 h-4 text-white" />
+            )}
+          </button>
+        )}
       </div>
 
       <Handle

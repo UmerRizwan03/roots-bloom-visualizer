@@ -4,6 +4,7 @@ import { FamilyMember } from '../types/family';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
+import { cn } from "@/lib/utils"; // Import cn
 
 interface EditMemberFormProps {
   member: FamilyMember;
@@ -69,7 +70,7 @@ const EditMemberForm: React.FC<EditMemberFormProps> = ({ member, onSave, onCance
 
   return (
     <Dialog open={true} onOpenChange={onCancel}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className={cn("max-w-4xl max-h-[90vh] overflow-y-auto", "z-[55]")}> {/* Added z-[55] */}
         <DialogHeader>
           <DialogTitle className="dark:text-emerald-300">Edit Family Member</DialogTitle>
         </DialogHeader>

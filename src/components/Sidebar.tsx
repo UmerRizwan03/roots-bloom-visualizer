@@ -24,19 +24,20 @@ const Sidebar: React.FC<SidebarProps> = ({
     : [];
 
   return (
-    <Card className="w-full h-full flex flex-col border-0 shadow-none"> {/* Added border-0 shadow-none */}
-      <CardHeader className="pb-2 pt-4"> 
-        <CardTitle className="text-lg">Search Members</CardTitle> 
+    <Card className="w-full h-full flex flex-col"> {/* Ensure Card takes full height and is flex column */}
+      <CardHeader className="pb-2 pt-4"> {/* Adjusted padding */}
+        <CardTitle className="text-lg">Search Members</CardTitle> {/* Slightly smaller title */}
       </CardHeader>
-      <CardContent className="flex-grow flex flex-col overflow-hidden p-4"> 
+      <CardContent className="flex-grow flex flex-col overflow-hidden p-4"> {/* Allow content to grow and manage overflow */}
         <Input
           type="text"
           placeholder="Type name to search..."
           value={searchQuery}
           onChange={(e) => onSearchQueryChange(e.target.value)}
-          className="mb-4" 
+          className="mb-4" // Add some margin below the input
         />
 
+        {/* Conditional rendering based on searchQuery */}
         {!searchQuery && (
           <div className="flex-grow flex items-center justify-center">
             <p className="text-sm text-muted-foreground">
@@ -46,9 +47,9 @@ const Sidebar: React.FC<SidebarProps> = ({
         )}
 
         {searchQuery && (
-          <ScrollArea className="flex-grow h-0"> 
+          <ScrollArea className="flex-grow h-0"> {/* ScrollArea takes remaining space */}
             {filteredMembers.length > 0 ? (
-              <div className="space-y-1 pr-2"> 
+              <div className="space-y-1 pr-2"> {/* Add a little padding for scrollbar */}
                 {filteredMembers.map((member) => (
                   <div
                     key={member.id}

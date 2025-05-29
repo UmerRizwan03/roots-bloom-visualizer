@@ -1,0 +1,18 @@
+/* src/react-flow-overrides.css */
+/* Custom styles for React Flow Controls to ensure visibility in themes */
+
+.react-flow__controls-button svg {
+    fill: var(--foreground); /* Use theme's foreground color for SVG icons */
+  }
+  
+  /* You could also add styles for the button itself if they were also problematic, for example: */
+  /*
+  .react-flow__controls-button {
+    background-color: var(--background); // Or var(--card)
+    border: 1px solid var(--border);
+  }
+  .react-flow__controls-button:hover {
+    background-color: var(--accent);
+  }
+  */
+  

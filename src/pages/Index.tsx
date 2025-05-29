@@ -1,27 +1,35 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
-import { TreePine, UserPlus } from 'lucide-react';
+import { TreePine, UserPlus, PanelRightOpen, PanelRightClose } from 'lucide-react'; 
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import ThemeToggleButton from '../components/ThemeToggleButton';
+import Sidebar from '../components/Sidebar'; 
 import FamilyTree from '../components/FamilyTree';
 import MemberModal from '../components/MemberModal';
 import { FamilyMember } from '../types/family';
-// Removed: import { familyMembers as initialFamilyMembers } from '../data/familyData';
-import { supabase } from '../lib/supabaseClient'; // Added supabase client import
+import { supabase } from '../lib/supabaseClient'; 
 import AddMemberForm from '../components/AddMemberForm';
 import EditMemberForm from '../components/EditMemberForm';
 import { v4 as uuidv4 } from 'uuid';
+import {
+  Sheet,
+  SheetContent,
+  // SheetHeader, // Not used for now, Sidebar has its own header
+  // SheetTitle,  // Not used for now
+} from "@/components/ui/sheet";
 
 const Index = () => {
   const [selectedMember, setSelectedMember] = useState<FamilyMember | null>(null);
   const [isAddMemberModalOpen, setIsAddMemberModalOpen] = useState(false);
-  const [members, setMembers] = useState<FamilyMember[]>([]); // Initialize as empty array
+  const [members, setMembers] = useState<FamilyMember[]>([]); 
   const [editingMember, setEditingMember] = useState<FamilyMember | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [focusedMemberId, setFocusedMemberId] = useState<string | null>(null); 
+  const [searchQuery, setSearchQuery] = useState<string>(""); 
+  const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false); 
 
-  // Extracted fetchMembers function
+
   const fetchMembers = useCallback(async () => {
     setIsLoading(true);
     setFetchError(null);
@@ -36,90 +44,72 @@ const Index = () => {
       setMembers([...data] as FamilyMember[]);
     }
     setIsLoading(false);
-  }, []); // setIsLoading, setFetchError, setMembers are stable
+  }, []); 
 
   useEffect(() => {
     fetchMembers();
-  }, [fetchMembers]); // fetchMembers is now a dependency
+  }, [fetchMembers]); 
 
   const handleAddMember = useCallback(async (memberData: Partial<FamilyMember>) => {
-    // Generate a unique ID
-    const id = uuidv4(); // Using uuidv4 for unique ID generation
-    
+    const id = uuidv4(); 
     const payload = {
       ...memberData,
       id,
       generation: memberData.generation || 1
     };
-
-    // Ensure generation is a number; fallback to 1 if not provided or invalid
     const finalPayload = {
       ...payload,
       generation: typeof memberData.generation === 'number' && memberData.generation > 0 
                     ? memberData.generation 
                     : 1,
     };
-
     const { error } = await supabase
       .from('family_members')
-      .insert([finalPayload]); // Use finalPayload here
-
+      .insert([finalPayload]); 
     if (error) {
       console.error('Error adding member:', error);
-      setFetchError(`Failed to add member: ${error.message}`); // You might also use a toast here
-      throw error; // IMPORTANT: Re-throw the error to be caught by AddMemberForm
+      setFetchError(`Failed to add member: ${error.message}`); 
+      throw error; 
     } else {
-      await fetchMembers(); // Re-fetch members on success
-      setIsAddMemberModalOpen(false); // Close modal on success
-      // Optionally, show a success toast here
+      await fetchMembers(); 
+      setIsAddMemberModalOpen(false); 
     }
-  }, [fetchMembers]); // setIsAddMemberModalOpen is stable
+  }, [fetchMembers]); 
 
-  const handleSetEditingMember = useCallback((member: FamilyMember | null) => {
-    setEditingMember(member);
-  }, []); // setEditingMember is stable
+  const handleSetEditingMember = useCallback((memberToEdit: FamilyMember | null) => {
+    if (memberToEdit) {
+      const originalMember = members.find(m => m.id === memberToEdit.id);
+      setEditingMember(originalMember || null); 
+    } else {
+      setEditingMember(null);
+    }
+  }, [members]); 
 
   const handleSaveEditedMember = useCallback(async (updatedMember: FamilyMember) => {
-    // Optional: Add a new loading state like setIsEditing(true);
     const { id, ...dataToUpdate } = updatedMember;
-
     const { error } = await supabase
       .from('family_members')
       .update(dataToUpdate)
       .eq('id', id);
-
     if (error) {
       console.error('Error updating member:', error);
-      setFetchError(`Failed to update member: ${error.message}`); // Or a new error state
+      setFetchError(`Failed to update member: ${error.message}`); 
     } else {
-      await fetchMembers(); // Re-fetch all members to reflect the update
-      setEditingMember(null); // Close the modal on success
+      await fetchMembers(); 
+      setEditingMember(null); 
     }
-    // Optional: setIsEditing(false);
-  }, [fetchMembers]); // setEditingMember is stable
+  }, [fetchMembers]); 
 
   const handleDeleteMember = useCallback(async (memberId: string) => {
-    // Optional: Add a new loading state like setIsDeleting(true);
-
     const { error } = await supabase
       .from('family_members')
       .delete()
       .eq('id', memberId);
-
     if (error) {
       console.error('Error deleting member:', error);
-      setFetchError(`Failed to delete member: ${error.message}`); // Or a new error state
+      setFetchError(`Failed to delete member: ${error.message}`); 
     } else {
-      await fetchMembers(); // Re-fetch all members to reflect the deletion
-
-      // Clear selection if the deleted member was selected/editing
-      // This should ideally happen *after* re-fetch confirms deletion from local state perspective,
-      // or be based on the new 'members' list post-fetch.
-      // For simplicity, we'll keep it here. If fetchMembers updates 'members'
-      // before these checks, selectedMember/editingMember might be stale.
-      // A more robust way would be to ensure these are cleared if their IDs
-      // are no longer in the 'members' list after fetchMembers.
-      // However, the current placement is acceptable for now.
+      await fetchMembers(); 
       if (selectedMember?.id === memberId) {
         setSelectedMember(null);
       }
@@ -127,16 +117,31 @@ const Index = () => {
         setEditingMember(null);
       }
     }
-    // Optional: setIsDeleting(false);
-  }, [fetchMembers, selectedMember, editingMember]); // setSelectedMember, setEditingMember are stable
+  }, [fetchMembers, selectedMember, editingMember]); 
 
   const handleMemberSelect = useCallback((member: FamilyMember) => {
     setSelectedMember(member);
-  }, []); // setSelectedMember is stable
+  }, []); 
 
   const handleCloseModal = useCallback(() => {
     setSelectedMember(null);
-  }, []); // setSelectedMember is stable
+  }, []); 
+
+  const handleMemberSelectFromSheet = useCallback((memberId: string) => {
+    setFocusedMemberId(memberId);
+    setIsDrawerOpen(false); // Close drawer after selection
+  }, []); 
+
+  const handleSearchQueryChange = useCallback((query: string) => {
+    setSearchQuery(query);
+    if (!query) {
+      setFocusedMemberId(null);
+    }
+  }, []); 
+
+  const toggleDrawer = useCallback(() => { 
+    setIsDrawerOpen(prev => !prev); 
+  }, []);
 
   if (isLoading) {
     return <div className="flex justify-center items-center min-h-screen">Loading family data...</div>;
@@ -147,14 +152,14 @@ const Index = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-green-50 dark:from-slate-900 dark:via-slate-800 dark:to-gray-900">
-      {/* Header */}
+    <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-green-50 dark:from-slate-900 dark:via-slate-800 dark:to-gray-900 flex flex-col">
+      {/* Header - Remains constrained */}
       <header className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm border-b border-emerald-100 dark:border-slate-700 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center space-x-3">
               <TreePine className="h-8 w-8 text-emerald-600 dark:text-emerald-400" />
-              <h1 className="text-2xl font-bold text-emerald-800 dark:text-emerald-300">FamilyRoots</h1>
+              <h1 className="text-2xl font-bold text-emerald-800 dark:text-emerald-300">Unity Valiyangadi</h1>
             </div>
             <div className="flex items-center">
               <nav className="hidden md:flex space-x-8 mr-4">
@@ -169,14 +174,23 @@ const Index = () => {
               >
                 <UserPlus className="mr-2 h-4 w-4" /> Add Member
               </Button>
+              <Button
+                variant="outline"
+                size="icon" 
+                onClick={toggleDrawer} 
+                aria-label={isDrawerOpen ? "Close search and filter panel" : "Open search and filter panel"}
+                className="ml-2" 
+              >
+                {isDrawerOpen ? <PanelRightClose className="h-5 w-5" /> : <PanelRightOpen className="h-5 w-5" />} 
+              </Button>
               <ThemeToggleButton />
             </div>
           </div>
         </div>
       </header>
 
-      {/* Section for Title/Description (constrained width) */}
-      <section className="pt-8"> {/* Top padding for this section */}
+      {/* Section for Title/Description - Remains constrained */}
+      <section className="pt-8"> 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-8">
             <h2 className="text-4xl md:text-6xl font-bold text-gray-900 dark:text-slate-100 mb-4">
@@ -189,33 +203,48 @@ const Index = () => {
           </div>
         </div>
       </section>
-
-      {/* Section for Family Tree (full width with its own padding) */}
-      <section className="relative overflow-hidden pb-8 px-4 sm:px-6 lg:px-8"> {/* Bottom and horizontal padding for this section */}
-        {/* Interactive Family Tree wrapper - this div is now effectively full-width relative to its section padding */}
-        <div className="relative">
-          <div className="bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm rounded-3xl shadow-2xl border border-slate-200/50 dark:border-slate-700/50 overflow-hidden">
-            {/* The h-[650px] w-full div remains, allowing FamilyTree to fill this container */}
-            <div className="h-[650px] w-full relative overflow-hidden"> 
-              <div className="absolute inset-0 bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:from-slate-800 dark:via-slate-900 dark:to-black" />
-              <FamilyTree 
-                members={members}
-                onMemberSelect={handleMemberSelect}
-                searchQuery=""
-                onSetEditingMember={handleSetEditingMember} 
-                onDeleteMember={handleDeleteMember}     
-              />
+      
+      {/* Main Content Wrapper - Remains full width */}
+      <div className="flex-1 w-full pb-8">
+        
+        {/* Family Tree Area - Main element with re-applied horizontal padding */}
+        <main className="flex-grow px-4 sm:px-6 lg:px-8"> {/* MODIFIED: Re-added px-4 sm:px-6 lg:px-8 */}
+          <section className="relative h-[650px]"> 
+            <div className="absolute inset-0 bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm rounded-3xl shadow-2xl border border-slate-200/50 dark:border-slate-700/50 overflow-hidden">
+              <div className="h-full w-full relative"> 
+                <div className="absolute inset-0 bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:from-slate-800 dark:via-slate-900 dark:to-black" />
+                <FamilyTree 
+                  members={members}
+                  onMemberSelect={handleMemberSelect} 
+                  searchQuery={searchQuery} 
+                  onSetEditingMember={handleSetEditingMember} 
+                  onDeleteMember={handleDeleteMember}     
+                  focusedMemberId={focusedMemberId}
+                />
+              </div>
             </div>
-          </div>
-        </div>
-      </section>
+          </section>
+        </main>
 
-      {/* Member Modal */}
+        {/* Sheet for Sidebar content (renders as a portal, not directly in this flex layout) */}
+        <Sheet open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
+          <SheetContent side="right" className="w-full sm:w-[400px] p-0 overflow-y-auto">
+            <Sidebar 
+              members={members}
+              searchQuery={searchQuery}
+              onSearchQueryChange={handleSearchQueryChange}
+              onMemberSelect={(memberId) => { 
+                handleMemberSelectFromSheet(memberId); 
+              }}
+            />
+          </SheetContent>
+        </Sheet>
+      </div>
+
+      {/* Modals */}
       {selectedMember && (
         <MemberModal member={selectedMember} onClose={handleCloseModal} />
       )}
-
-      {/* Add Member Form */}
       {isAddMemberModalOpen && (
         <AddMemberForm
           onAdd={handleAddMember}
@@ -223,14 +252,12 @@ const Index = () => {
           existingMembers={members}
         />
       )}
-
-      {/* Edit Member Form */}
       {editingMember && (
         <EditMemberForm
           member={editingMember}
-          onSave={handleSaveEditedMember} // Use the new handler
+          onSave={handleSaveEditedMember} 
           onCancel={() => setEditingMember(null)}
-          existingMembers={members} // Added missing prop
+          existingMembers={members} 
         />
       )}
     </div>

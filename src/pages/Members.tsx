@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { familyMembers } from '../data/familyData';
+import React, { useState, useEffect, useCallback } from 'react';
+import { supabase } from '../lib/supabaseClient'; 
 import { FamilyMember } from '../types/family';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { User, Calendar, MapPin, Briefcase, Heart, Droplets, Phone, Mail, Search, X } from 'lucide-react';
@@ -8,22 +8,43 @@ import ThemeToggleButton from '../components/ThemeToggleButton';
 
 const Members = () => {
   const [searchQuery, setSearchQuery] = useState('');
+  const [members, setMembers] = useState<FamilyMember[]>([]); 
+  const [isLoading, setIsLoading] = useState<boolean>(true); 
+  const [fetchError, setFetchError] = useState<string | null>(null); 
+
+  const fetchPageMembers = useCallback(async () => {
+    setIsLoading(true);
+    setFetchError(null);
+    const { data, error } = await supabase
+      .from('family_members')
+      .select('*'); 
+
+    if (error) {
+      console.error('Error fetching members for Members page:', error);
+      setFetchError(error.message);
+      setMembers([]);
+    } else {
+      setMembers(data as FamilyMember[]);
+    }
+    setIsLoading(false);
+  }, []);
+
+  useEffect(() => {
+    fetchPageMembers();
+  }, [fetchPageMembers]);
 
   const getPartnerDetails = (member: FamilyMember) => {
     const partners: FamilyMember[] = [];
-    
     if (member.spouse) {
-      const spouse = familyMembers.find(m => m.id === member.spouse);
+      const spouse = members.find(m => m.id === member.spouse); 
       if (spouse) partners.push(spouse);
     }
-    
     if (member.partners) {
       member.partners.forEach(partnerId => {
-        const partner = familyMembers.find(m => m.id === partnerId);
+        const partner = members.find(m => m.id === partnerId); 
         if (partner) partners.push(partner);
       });
     }
-    
     return partners;
   };
 
@@ -34,7 +55,7 @@ const Members = () => {
     return end.getFullYear() - birth.getFullYear();
   };
 
-  const filteredMembers = familyMembers.filter(member =>
+  const filteredMembers = members.filter(member => 
     member.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     member.occupation?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     member.birthPlace?.toLowerCase().includes(searchQuery.toLowerCase())
@@ -44,6 +65,25 @@ const Members = () => {
     setSearchQuery('');
   };
 
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center min-h-screen bg-gradient-to-br from-emerald-50 via-white to-green-50 dark:from-slate-900 dark:via-slate-800 dark:to-gray-900 text-gray-700 dark:text-slate-300">
+        Loading members...
+      </div>
+    );
+  }
+
+  if (fetchError) {
+    return (
+      <div className="flex flex-col justify-center items-center min-h-screen bg-gradient-to-br from-red-50 via-white to-pink-50 dark:from-slate-900 dark:via-slate-800 dark:to-gray-900 text-red-700 dark:text-red-400 p-4">
+        <h2 className="text-2xl font-semibold mb-4">Error Fetching Data</h2>
+        <p className="mb-2">There was an issue retrieving the family members list:</p>
+        <p className="bg-red-100 dark:bg-red-900/30 p-2 rounded border border-red-300 dark:border-red-700">{fetchError}</p>
+        <Button onClick={fetchPageMembers} className="mt-6">Try Again</Button>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-green-50 dark:from-slate-900 dark:via-slate-800 dark:to-gray-900 py-8">
       {/* Header */}
@@ -51,10 +91,10 @@ const Members = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <Link to="/" className="flex items-center space-x-3">
-              <span className="text-2xl font-bold text-emerald-800 dark:text-emerald-300">FamilyRoots</span>
+              <span className="text-2xl font-bold text-emerald-800 dark:text-emerald-300">Unity Valiyangadi</span>
             </Link>
-            <div className="flex items-center"> {/* Added div for alignment */}
-              <nav className="hidden md:flex space-x-8 mr-4"> {/* Added mr-4 for spacing */}
+            <div className="flex items-center"> 
+              <nav className="hidden md:flex space-x-8 mr-4"> 
                 <Link to="/" className="text-gray-600 dark:text-slate-300 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">Home</Link>
                 <Link to="/members" className="text-emerald-600 dark:text-emerald-400 font-medium">Members</Link>
                 <Link to="/magazines" className="text-gray-600 dark:text-slate-300 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">E-Magazines</Link>
@@ -70,7 +110,6 @@ const Members = () => {
           <h1 className="text-4xl font-bold text-gray-900 dark:text-slate-100 mb-4">Family Members</h1>
           <p className="text-xl text-gray-600 dark:text-slate-300 mb-6">Meet all our wonderful family members</p>
           
-          {/* Search Bar */}
           <div className="max-w-md mx-auto relative">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400 dark:text-gray-500" />
@@ -95,7 +134,7 @@ const Members = () => {
               )}
             </div>
             
-            {searchQuery && (
+            {searchQuery && members.length > 0 && ( // Only show search count if there are members to search from
               <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 
                               rounded-lg shadow-lg z-10 p-2">
                 <div className="text-sm text-gray-600 dark:text-slate-300">
@@ -106,145 +145,154 @@ const Members = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {filteredMembers.map((member) => {
-            const partners = getPartnerDetails(member);
-            const age = calculateAge(member.birthDate, member.deathDate);
+        {/* Conditional rendering for "No members in database" */}
+        {!searchQuery && !isLoading && members.length === 0 && (
+          <div className="text-center py-12">
+            <p className="text-gray-500 dark:text-slate-400 text-lg">No members found in the database.</p>
+            {/* Optionally, add a button to refresh or add first member */}
+          </div>
+        )}
 
-            return (
-              <Card key={member.id} className="overflow-hidden hover:shadow-xl transition-shadow duration-300 dark:bg-slate-800">
-                <CardHeader className={`pb-4 ${member.gender === 'male' ? 'bg-gradient-to-r from-blue-500 to-indigo-600' : 'bg-gradient-to-r from-rose-500 to-pink-600'} text-white`}>
-                  <div className="flex items-center space-x-4">
-                    <div className="w-16 h-16 bg-white/20 dark:bg-slate-700/30 rounded-full flex items-center justify-center">
-                      {member.photo ? (
-                        <img 
-                          src={member.photo} 
-                          alt={member.name}
-                          className="w-full h-full object-cover rounded-full"
-                        />
-                      ) : (
-                        <User className="w-8 h-8 text-white" />
+        {/* Only render grid if there are members */}
+        {members.length > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {filteredMembers.map((member) => {
+              const partners = getPartnerDetails(member);
+              const age = calculateAge(member.birthDate, member.deathDate);
+
+              return (
+                <Card key={member.id} className="overflow-hidden hover:shadow-xl transition-shadow duration-300 dark:bg-slate-800">
+                  <CardHeader className={`pb-4 ${member.gender === 'male' ? 'bg-gradient-to-r from-blue-500 to-indigo-600' : 'bg-gradient-to-r from-rose-500 to-pink-600'} text-white`}>
+                    <div className="flex items-center space-x-4">
+                      <div className="w-16 h-16 bg-white/20 dark:bg-slate-700/30 rounded-full flex items-center justify-center">
+                        {member.photo ? (
+                          <img 
+                            src={member.photo} 
+                            alt={member.name}
+                            className="w-full h-full object-cover rounded-full"
+                          />
+                        ) : (
+                          <User className="w-8 h-8 text-white" />
+                        )}
+                      </div>
+                      <div>
+                        <CardTitle className="text-xl font-bold text-white">{member.name}</CardTitle>
+                        <p className="text-white/80 text-sm">Generation {member.generation}</p>
+                      </div>
+                    </div>
+                  </CardHeader>
+
+                  <CardContent className="p-6 space-y-4 dark:text-slate-300">
+                    <div className="space-y-3">
+                      {member.birthDate && (
+                        <div className="flex items-center text-sm text-gray-600 dark:text-slate-300">
+                          <Calendar className="w-4 h-4 mr-2 text-gray-400 dark:text-slate-500" />
+                          <span>
+                            Born: {new Date(member.birthDate).toLocaleDateString()}
+                            {age && ` (${age} years old)`}
+                          </span>
+                        </div>
+                      )}
+
+                      {member.deathDate && (
+                        <div className="flex items-center text-sm text-gray-600 dark:text-slate-300">
+                          <Calendar className="w-4 h-4 mr-2 text-gray-400 dark:text-slate-500" />
+                          <span>Died: {new Date(member.deathDate).toLocaleDateString()}</span>
+                        </div>
+                      )}
+
+                      {member.birthPlace && (
+                        <div className="flex items-center text-sm text-gray-600 dark:text-slate-300">
+                          <MapPin className="w-4 h-4 mr-2 text-gray-400 dark:text-slate-500" />
+                          <span>{member.birthPlace}</span>
+                        </div>
+                      )}
+
+                      {member.occupation && (
+                        <div className="flex items-center text-sm text-gray-600 dark:text-slate-300">
+                          <Briefcase className="w-4 h-4 mr-2 text-gray-400 dark:text-slate-500" />
+                          <span>{member.occupation}</span>
+                        </div>
+                      )}
+
+                      {member.bloodType && (
+                        <div className="flex items-center text-sm text-gray-600 dark:text-slate-300">
+                          <Droplets className="w-4 h-4 mr-2 text-gray-400 dark:text-slate-500" />
+                          <span>Blood Type: {member.bloodType}</span>
+                        </div>
+                      )}
+
+                      {member.mobileNumber && (
+                        <div className="flex items-center text-sm text-gray-600 dark:text-slate-300">
+                          <Phone className="w-4 h-4 mr-2 text-gray-400 dark:text-slate-500" />
+                          <span>{member.mobileNumber}</span>
+                        </div>
+                      )}
+
+                      {member.email && (
+                        <div className="flex items-center text-sm text-gray-600 dark:text-slate-300">
+                          <Mail className="w-4 h-4 mr-2 text-gray-400 dark:text-slate-500" />
+                          <span>{member.email}</span>
+                        </div>
                       )}
                     </div>
-                    <div>
-                      <CardTitle className="text-xl font-bold text-white">{member.name}</CardTitle>
-                      <p className="text-white/80 text-sm">Generation {member.generation}</p>
-                    </div>
-                  </div>
-                </CardHeader>
 
-                <CardContent className="p-6 space-y-4 dark:text-slate-300">
-                  {/* Basic Info */}
-                  <div className="space-y-3">
-                    {member.birthDate && (
-                      <div className="flex items-center text-sm text-gray-600 dark:text-slate-300">
-                        <Calendar className="w-4 h-4 mr-2 text-gray-400 dark:text-slate-500" />
-                        <span>
-                          Born: {new Date(member.birthDate).toLocaleDateString()}
-                          {age && ` (${age} years old)`}
-                        </span>
-                      </div>
-                    )}
-
-                    {member.deathDate && (
-                      <div className="flex items-center text-sm text-gray-600 dark:text-slate-300">
-                        <Calendar className="w-4 h-4 mr-2 text-gray-400 dark:text-slate-500" />
-                        <span>Died: {new Date(member.deathDate).toLocaleDateString()}</span>
-                      </div>
-                    )}
-
-                    {member.birthPlace && (
-                      <div className="flex items-center text-sm text-gray-600 dark:text-slate-300">
-                        <MapPin className="w-4 h-4 mr-2 text-gray-400 dark:text-slate-500" />
-                        <span>{member.birthPlace}</span>
-                      </div>
-                    )}
-
-                    {member.occupation && (
-                      <div className="flex items-center text-sm text-gray-600 dark:text-slate-300">
-                        <Briefcase className="w-4 h-4 mr-2 text-gray-400 dark:text-slate-500" />
-                        <span>{member.occupation}</span>
-                      </div>
-                    )}
-
-                    {member.bloodType && (
-                      <div className="flex items-center text-sm text-gray-600 dark:text-slate-300">
-                        <Droplets className="w-4 h-4 mr-2 text-gray-400 dark:text-slate-500" />
-                        <span>Blood Type: {member.bloodType}</span>
-                      </div>
-                    )}
-
-                    {member.mobileNumber && (
-                      <div className="flex items-center text-sm text-gray-600 dark:text-slate-300">
-                        <Phone className="w-4 h-4 mr-2 text-gray-400 dark:text-slate-500" />
-                        <span>{member.mobileNumber}</span>
-                      </div>
-                    )}
-
-                    {member.email && (
-                      <div className="flex items-center text-sm text-gray-600 dark:text-slate-300">
-                        <Mail className="w-4 h-4 mr-2 text-gray-400 dark:text-slate-500" />
-                        <span>{member.email}</span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Partners */}
-                  {partners.length > 0 && (
-                    <div className="border-t dark:border-slate-700 pt-4">
-                      <div className="flex items-center mb-3">
-                        <Heart className="w-4 h-4 mr-2 text-red-500" />
-                        <span className="font-semibold text-gray-800 dark:text-slate-200">
-                          {partners.length === 1 ? 'Partner' : 'Partners'}
-                        </span>
-                      </div>
-                      {partners.map((partner) => (
-                        <div key={partner.id} className="bg-gray-50 dark:bg-slate-700/50 rounded-lg p-3 mb-2 last:mb-0">
-                          <div className="font-medium text-gray-800 dark:text-slate-200">{partner.name}</div>
-                          <div className="text-sm text-gray-600 dark:text-slate-300 space-y-1">
-                            {partner.occupation && (
-                              <div className="flex items-center">
-                                <Briefcase className="w-3 h-3 mr-1 text-gray-400 dark:text-slate-500" />
-                                <span>{partner.occupation}</span>
-                              </div>
-                            )}
-                            {partner.bloodType && (
-                              <div className="flex items-center">
-                                <Droplets className="w-3 h-3 mr-1 text-gray-400 dark:text-slate-500" />
-                                <span>Blood Type: {partner.bloodType}</span>
-                              </div>
-                            )}
-                            {partner.mobileNumber && (
-                              <div className="flex items-center">
-                                <Phone className="w-3 h-3 mr-1 text-gray-400 dark:text-slate-500" />
-                                <span>{partner.mobileNumber}</span>
-                              </div>
-                            )}
-                            {partner.email && (
-                              <div className="flex items-center">
-                                <Mail className="w-3 h-3 mr-1 text-gray-400 dark:text-slate-500" />
-                                <span>{partner.email}</span>
-                              </div>
-                            )}
-                          </div>
+                    {partners.length > 0 && (
+                      <div className="border-t dark:border-slate-700 pt-4">
+                        <div className="flex items-center mb-3">
+                          <Heart className="w-4 h-4 mr-2 text-red-500" />
+                          <span className="font-semibold text-gray-800 dark:text-slate-200">
+                            {partners.length === 1 ? 'Partner' : 'Partners'}
+                          </span>
                         </div>
-                      ))}
-                    </div>
-                  )}
+                        {partners.map((partner) => (
+                          <div key={partner.id} className="bg-gray-50 dark:bg-slate-700/50 rounded-lg p-3 mb-2 last:mb-0">
+                            <div className="font-medium text-gray-800 dark:text-slate-200">{partner.name}</div>
+                            <div className="text-sm text-gray-600 dark:text-slate-300 space-y-1">
+                              {partner.occupation && (
+                                <div className="flex items-center">
+                                  <Briefcase className="w-3 h-3 mr-1 text-gray-400 dark:text-slate-500" />
+                                  <span>{partner.occupation}</span>
+                                </div>
+                              )}
+                              {partner.bloodType && (
+                                <div className="flex items-center">
+                                  <Droplets className="w-3 h-3 mr-1 text-gray-400 dark:text-slate-500" />
+                                  <span>Blood Type: {partner.bloodType}</span>
+                                </div>
+                              )}
+                              {partner.mobileNumber && (
+                                <div className="flex items-center">
+                                  <Phone className="w-3 h-3 mr-1 text-gray-400 dark:text-slate-500" />
+                                  <span>{partner.mobileNumber}</span>
+                                </div>
+                              )}
+                              {partner.email && (
+                                <div className="flex items-center">
+                                  <Mail className="w-3 h-3 mr-1 text-gray-400 dark:text-slate-500" />
+                                  <span>{partner.email}</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
 
-                  {/* Bio */}
-                  {member.bio && (
-                    <div className="border-t dark:border-slate-700 pt-4">
-                      <p className="text-sm text-gray-600 dark:text-slate-300 leading-relaxed">{member.bio}</p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-
-        {filteredMembers.length === 0 && searchQuery && (
+                    {member.bio && (
+                      <div className="border-t dark:border-slate-700 pt-4">
+                        <p className="text-sm text-gray-600 dark:text-slate-300 leading-relaxed">{member.bio}</p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        )}
+        
+        {/* This handles "no results for search query" when members *are* present */}
+        {members.length > 0 && filteredMembers.length === 0 && searchQuery && (
           <div className="text-center py-12">
             <p className="text-gray-500 dark:text-slate-400 text-lg">No family members found matching "{searchQuery}"</p>
             <button 
