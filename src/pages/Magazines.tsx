@@ -1,7 +1,8 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react'; // Added useCallback
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
+import { useAuth } from '../contexts/AuthContext'; // Import useAuth
 import { toast } from "sonner"; // Import toast for notifications
 import { Calendar, Download, Eye, BookOpen, Users, PlusCircle } from 'lucide-react';
 import ThemeToggleButton from '../components/ThemeToggleButton';
@@ -33,8 +34,15 @@ const Magazines = () => {
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false); // For submission loading state
 
+  const { currentMode, user, isLoadingAuth } = useAuth(); // Get auth context
+
+  // Determine if the current user is an admin
+  const isAdmin = !isLoadingAuth && currentMode === 'admin' && user;
+
   // Function to fetch magazines from Supabase
-  async function fetchMagazines() {
+  const fetchMagazines = useCallback(async () => { // Wrapped in useCallback
+    setIsLoadingMagazines(true);
+    setFetchError(null);
     setIsLoadingMagazines(true);
     setFetchError(null);
 
@@ -71,13 +79,19 @@ const Magazines = () => {
       setUploadedMagazines(processedMagazines);
     }
     setIsLoadingMagazines(false);
-  }
+  }, []); // fetchMagazines is stable as it has no external deps other than Supabase and setters
 
   useEffect(() => {
     fetchMagazines();
-  }, []);
+  }, [fetchMagazines]);
 
-  const handleAddMagazine = async (data: NewMagazineData) => {
+  const handleAddMagazine = useCallback(async (data: NewMagazineData) => {
+    if (!isAdmin) {
+      toast.error("Unauthorized: Only admins can add new magazines.");
+      setIsAddModalOpen(false); // Ensure modal closes if somehow opened
+      return;
+    }
+
     setIsSubmitting(true);
     toast.info("Uploading PDF...", { id: "upload-toast" });
 
@@ -138,7 +152,7 @@ const Magazines = () => {
     await fetchMagazines(); // Re-fetch magazines to update the list
     setIsAddModalOpen(false);
     setIsSubmitting(false);
-  }; // End of handleAddMagazine
+  }, [isAdmin, fetchMagazines]); // Added isAdmin and fetchMagazines to dependency array
 
   // Start of the return statement for the component
   return (
@@ -187,12 +201,16 @@ const Magazines = () => {
 
         {!isLoadingMagazines && !fetchError && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {/* Dialog for Adding Magazine */}
-            <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
-            <DialogTrigger asChild>
-              <Card className="flex flex-col items-center justify-center text-center p-6 cursor-pointer hover:shadow-xl transition-all duration-300 group min-h-[480px] dark:bg-slate-800 hover:dark:bg-slate-700"> {/* Adjusted min-height */}
-                <PlusCircle className="w-16 h-16 text-emerald-500 dark:text-emerald-400 mb-4" />
-                <h3 className="text-lg font-semibold text-gray-700 dark:text-slate-200">Add New Magazine</h3>
+            {/* Dialog for Adding Magazine - Conditionally render based on isAdmin */}
+            {isAdmin && (
+              <Dialog open={isAddModalOpen} onOpenChange={(isOpen) => {
+                  if (isSubmitting && !isOpen) return; // Prevent closing while submitting
+                  setIsAddModalOpen(isOpen);
+              }}>
+                <DialogTrigger asChild>
+                  <Card className="flex flex-col items-center justify-center text-center p-6 cursor-pointer hover:shadow-xl transition-all duration-300 group min-h-[480px] dark:bg-slate-800 hover:dark:bg-slate-700"> {/* Adjusted min-height */}
+                    <PlusCircle className="w-16 h-16 text-emerald-500 dark:text-emerald-400 mb-4" />
+                    <h3 className="text-lg font-semibold text-gray-700 dark:text-slate-200">Add New Magazine</h3>
                 <p className="text-sm text-gray-500 dark:text-slate-400 mt-1">Click to upload a new issue.</p>
               </Card>
             </DialogTrigger>
@@ -205,10 +223,11 @@ const Magazines = () => {
                 onCancel={() => {
                   if (!isSubmitting) setIsAddModalOpen(false);
                 }}
-                // Optionally pass isSubmitting to disable form fields/button
+                isSubmitting={isSubmitting}
               />
             </DialogContent>
           </Dialog>
+            )}
           
             {/* Display magazines if no error and not loading */}
             {uploadedMagazines.map((magazine) => (

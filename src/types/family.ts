@@ -27,3 +27,26 @@ export interface FamilyConnection {
   target: string;
   type: 'parent' | 'spouse';
 }
+
+// Data structure for nodes in ReactFlow, extending FamilyMember with UI-specific properties and callbacks
+export interface FamilyMemberNodeData extends FamilyMember {
+  // Callbacks passed from the tree/page
+  onSelect: (member: FamilyMember) => void;
+  onEdit: (member: FamilyMember) => void;
+  onDelete: (memberId: string) => void;
+  onToggleCollapse: (memberId: string) => void;
+
+  // UI state flags determined during layout
+  isSearchMatch?: boolean;
+  isFocused?: boolean;
+  // isCollapsed is already in FamilyMember, but could be overridden or explicitly set here too
+  descendantCount?: number;
+  hasChildren?: boolean; // Explicit flag if node has children visible in the current layout
+
+  // Authorization flag
+  canEdit?: boolean;
+
+  // Layout specific flags (optional, might be handled internally by layout or node)
+  isManagingSpouseLayout?: boolean;
+  spouseId?: string; // To help with spouse handle rendering if needed directly in node
+}

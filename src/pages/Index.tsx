@@ -3,7 +3,11 @@ import { TreePine, UserPlus, PanelRightOpen, PanelRightClose } from 'lucide-reac
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import ThemeToggleButton from '../components/ThemeToggleButton';
-import Sidebar from '../components/Sidebar'; 
+import { useAuth } from '../contexts/AuthContext'; // Import useAuth
+import FamilyCodeModal from '../components/FamilyCodeModal'; // Import FamilyCodeModal
+import { Switch } from '@/components/ui/switch'; // For the toggle
+import { Label } from '@/components/ui/label'; // For the toggle label
+import Sidebar from '../components/Sidebar';
 import FamilyTree from '../components/FamilyTree';
 import MemberModal from '../components/MemberModal';
 import { FamilyMember } from '../types/family';
@@ -11,6 +15,7 @@ import { supabase } from '../lib/supabaseClient';
 import AddMemberForm from '../components/AddMemberForm';
 import EditMemberForm from '../components/EditMemberForm';
 import { v4 as uuidv4 } from 'uuid';
+import { toast } from "sonner"; // For showing errors if actions are attempted without permission
 import {
   Sheet,
   SheetContent,
@@ -27,8 +32,22 @@ const Index = () => {
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [focusedMemberId, setFocusedMemberId] = useState<string | null>(null); 
   const [searchQuery, setSearchQuery] = useState<string>(""); 
-  const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false); 
+  const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
 
+  const {
+    currentMode,
+    setMode,
+    isFamilyCodeVerified,
+    // verifyFamilyCode, // We might not call this directly here if modal handles it
+    // clearFamilyCodeVerification, // AuthContext handles this
+    user, // To check if admin
+    adminLogout, // Make sure adminLogout is here
+    isLoadingAuth
+  } = useAuth();
+  const [isFamilyCodeModalOpen, setIsFamilyCodeModalOpen] = useState(false);
+
+  // Recalculate canEdit based on the latest context values
+  const canEdit = !isLoadingAuth && ((currentMode === 'edit' && isFamilyCodeVerified) || currentMode === 'admin');
 
   const fetchMembers = useCallback(async () => {
     setIsLoading(true);
@@ -51,7 +70,11 @@ const Index = () => {
   }, [fetchMembers]); 
 
   const handleAddMember = useCallback(async (memberData: Partial<FamilyMember>) => {
-    const id = uuidv4(); 
+    if (!canEdit) {
+      toast.error("Unauthorized: You don't have permission to add members.");
+      return;
+    }
+    const id = uuidv4();
     const payload = {
       ...memberData,
       id,
@@ -68,13 +91,13 @@ const Index = () => {
       .insert([finalPayload]); 
     if (error) {
       console.error('Error adding member:', error);
-      setFetchError(`Failed to add member: ${error.message}`); 
-      throw error; 
+      setFetchError(`Failed to add member: ${error.message}`);
+      throw error;
     } else {
-      await fetchMembers(); 
-      setIsAddMemberModalOpen(false); 
+      await fetchMembers();
+      setIsAddMemberModalOpen(false);
     }
-  }, [fetchMembers]); 
+  }, [fetchMembers, canEdit]);
 
   const handleSetEditingMember = useCallback((memberToEdit: FamilyMember | null) => {
     if (memberToEdit) {
@@ -86,6 +109,10 @@ const Index = () => {
   }, [members]); 
 
   const handleSaveEditedMember = useCallback(async (updatedMember: FamilyMember) => {
+    if (!canEdit) {
+      toast.error("Unauthorized: You don't have permission to edit members.");
+      return;
+    }
     const { id, ...dataToUpdate } = updatedMember;
     const { error } = await supabase
       .from('family_members')
@@ -93,23 +120,27 @@ const Index = () => {
       .eq('id', id);
     if (error) {
       console.error('Error updating member:', error);
-      setFetchError(`Failed to update member: ${error.message}`); 
+      setFetchError(`Failed to update member: ${error.message}`);
     } else {
-      await fetchMembers(); 
-      setEditingMember(null); 
+      await fetchMembers();
+      setEditingMember(null);
     }
-  }, [fetchMembers]); 
+  }, [fetchMembers, canEdit]);
 
   const handleDeleteMember = useCallback(async (memberId: string) => {
+    if (!canEdit) {
+      toast.error("Unauthorized: You don't have permission to delete members.");
+      return;
+    }
     const { error } = await supabase
       .from('family_members')
       .delete()
       .eq('id', memberId);
     if (error) {
       console.error('Error deleting member:', error);
-      setFetchError(`Failed to delete member: ${error.message}`); 
+      setFetchError(`Failed to delete member: ${error.message}`);
     } else {
-      await fetchMembers(); 
+      await fetchMembers();
       if (selectedMember?.id === memberId) {
         setSelectedMember(null);
       }
@@ -117,7 +148,7 @@ const Index = () => {
         setEditingMember(null);
       }
     }
-  }, [fetchMembers, selectedMember, editingMember]); 
+  }, [fetchMembers, selectedMember, editingMember, canEdit]);
 
   const handleMemberSelect = useCallback((member: FamilyMember) => {
     setSelectedMember(member);
@@ -139,11 +170,30 @@ const Index = () => {
     }
   }, []); 
 
-  const toggleDrawer = useCallback(() => { 
-    setIsDrawerOpen(prev => !prev); 
+  const toggleDrawer = useCallback(() => {
+    setIsDrawerOpen(prev => !prev);
   }, []);
 
-  if (isLoading) {
+  const handleModeToggle = (isEditModeRequested: boolean) => {
+    if (isLoadingAuth || currentMode === 'admin') return; // Don't allow toggle if loading or admin
+
+    if (isEditModeRequested) {
+      if (isFamilyCodeVerified) {
+        setMode('edit');
+      } else {
+        setIsFamilyCodeModalOpen(true); // Open modal to enter code
+      }
+    } else {
+      setMode('view');
+      // Optional: decide if switching to view mode should clear verification immediately
+      // clearFamilyCodeVerification(); // This is now handled in AuthContext more globally
+    }
+  };
+
+  // Determine if editing is allowed based on context - MOVED UP & REFINED
+  // const canEdit = (currentMode === 'edit' && isFamilyCodeVerified) || currentMode === 'admin';
+
+  if (isLoading || isLoadingAuth) { // Consider isLoadingAuth as well
     return <div className="flex justify-center items-center min-h-screen">Loading family data...</div>;
   }
 
@@ -166,24 +216,63 @@ const Index = () => {
                 <Link to="/" className="text-emerald-600 dark:text-emerald-400 font-medium">Home</Link>
                 <Link to="/members" className="text-gray-600 dark:text-slate-300 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">Members</Link>
                 <Link to="/magazines" className="text-gray-600 dark:text-slate-300 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">E-Magazines</Link>
+                {/* Mode Toggle */}
+                {currentMode !== 'admin' && !isLoadingAuth && (
+                  <div className="flex items-center space-x-2 mr-4">
+                    <Label htmlFor="mode-toggle" className={currentMode === 'edit' ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-600 dark:text-slate-300'}>
+                      {currentMode === 'edit' ? 'Edit Mode' : 'View Mode'}
+                    </Label>
+                    <Switch
+                      id="mode-toggle"
+                      checked={currentMode === 'edit'}
+                      onCheckedChange={handleModeToggle}
+                      disabled={currentMode === 'admin' || isLoadingAuth}
+                    />
+                  </div>
+                )}
+                {currentMode === 'admin' && (
+                   <span className="mr-4 text-purple-600 dark:text-purple-400 font-semibold">Admin Mode</span>
+                )}
               </nav>
-              <Button 
-                variant="outline" 
-                className="mr-2"
-                onClick={() => setIsAddMemberModalOpen(true)}
-              >
-                <UserPlus className="mr-2 h-4 w-4" /> Add Member
-              </Button>
+              {/* Conditional Add Member Button */}
+              {canEdit && (
+                <Button
+                  variant="outline"
+                  className="mr-2"
+                  onClick={() => setIsAddMemberModalOpen(true)}
+                >
+                  <UserPlus className="mr-2 h-4 w-4" /> Add Member
+                </Button>
+              )}
               <Button
                 variant="outline"
-                size="icon" 
-                onClick={toggleDrawer} 
+                size="icon"
+                onClick={toggleDrawer}
                 aria-label={isDrawerOpen ? "Close search and filter panel" : "Open search and filter panel"}
-                className="ml-2" 
+                className="ml-2"
               >
-                {isDrawerOpen ? <PanelRightClose className="h-5 w-5" /> : <PanelRightOpen className="h-5 w-5" />} 
+                {isDrawerOpen ? <PanelRightClose className="h-5 w-5" /> : <PanelRightOpen className="h-5 w-5" />}
               </Button>
               <ThemeToggleButton />
+              {/* Admin Login/Logout */}
+              {!user && !isLoadingAuth && (
+                <Link to="/login" className="ml-4 text-sm font-medium text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300">
+                  Admin Login
+                </Link>
+              )}
+              {user && currentMode === 'admin' && (
+                <Button
+                  variant="ghost"
+                  onClick={async () => {
+                    await adminLogout();
+                    // User will be redirected or mode will change via AuthContext effect
+                  }}
+                  className="ml-4 text-sm font-medium text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300"
+                  disabled={isLoadingAuth}
+                >
+                  {isLoadingAuth ? 'Logging out...' : 'Admin Logout'}
+                </Button>
+               )}
             </div>
           </div>
         </div>
@@ -217,9 +306,10 @@ const Index = () => {
                   members={members}
                   onMemberSelect={handleMemberSelect} 
                   searchQuery={searchQuery} 
-                  onSetEditingMember={handleSetEditingMember} 
-                  onDeleteMember={handleDeleteMember}     
+                  onSetEditingMember={handleSetEditingMember}
+                  onDeleteMember={handleDeleteMember}
                   focusedMemberId={focusedMemberId}
+                  canEdit={canEdit} // Pass down the canEdit flag
                 />
               </div>
             </div>
@@ -242,22 +332,27 @@ const Index = () => {
       </div>
 
       {/* Modals */}
+      {/* Modals */}
+      <FamilyCodeModal
+        isOpen={isFamilyCodeModalOpen}
+        onOpenChange={setIsFamilyCodeModalOpen}
+      />
       {selectedMember && (
         <MemberModal member={selectedMember} onClose={handleCloseModal} />
       )}
-      {isAddMemberModalOpen && (
+      {isAddMemberModalOpen && canEdit && (
         <AddMemberForm
           onAdd={handleAddMember}
           onCancel={() => setIsAddMemberModalOpen(false)}
           existingMembers={members}
         />
       )}
-      {editingMember && (
+      {editingMember && canEdit && (
         <EditMemberForm
           member={editingMember}
-          onSave={handleSaveEditedMember} 
+          onSave={handleSaveEditedMember}
           onCancel={() => setEditingMember(null)}
-          existingMembers={members} 
+          existingMembers={members}
         />
       )}
     </div>

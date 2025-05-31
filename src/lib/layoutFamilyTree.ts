@@ -24,9 +24,10 @@ export function layoutFamilyTree(
   collapsedStates: Record<string, boolean>,
   focusedMemberId: string | null | undefined,
   callbacks: LayoutCallbacks,
-  config: LayoutConfig
+  config: LayoutConfig,
+  canEdit: boolean // Add canEdit parameter
 ): { nodes: Node[]; edges: Edge[] } {
-  
+
   // --- Start of logic moved from FamilyTree.tsx's useEffect ---
 
   // Step 1: Determine initialSet.
@@ -96,7 +97,8 @@ export function layoutFamilyTree(
               isHighlighted,
               isCollapsed: !!collapsedStates[member.id],
               onToggleCollapse: callbacks.onToggleCollapse,
-              hasChildren: hasVisibleChildren
+              hasChildren: hasVisibleChildren,
+              canEdit: canEdit // Pass canEdit here
           },
           sourcePosition: Position.Bottom,
           targetPosition: Position.Top,
