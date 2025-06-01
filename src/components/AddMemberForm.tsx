@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react'; // Ensure useCallback is imported
 import { FamilyMember } from '../types/family';
+import { supabase } from '../lib/supabaseClient'; // Import Supabase client
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { 
@@ -45,6 +46,7 @@ const AddMemberForm: React.FC<AddMemberFormProps> = ({ onAdd, onCancel, existing
     otherPartnerNames: '', // New state for Other Partner Names
     coParentName: '', // New state for Co-parent's Name
   });
+  const [profilePictureFile, setProfilePictureFile] = useState<File | null>(null); // State for profile picture
   const [generationHintMembers, setGenerationHintMembers] = useState<string[]>([]);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -219,6 +221,45 @@ const AddMemberForm: React.FC<AddMemberFormProps> = ({ onAdd, onCancel, existing
       return;
     }
 
+    let photoUrl: string | undefined = undefined; // Initialize photoUrl
+
+    if (profilePictureFile) {
+      const fileName = `${Date.now()}-${profilePictureFile.name}`;
+      const filePath = `public/${fileName}`; // Path within the bucket
+
+      try {
+        // Upload file to Supabase Storage
+        const { error: uploadError } = await supabase.storage
+          .from('family-member-images') // Your specified bucket name
+          .upload(filePath, profilePictureFile, {
+            cacheControl: '3600', // Optional: Cache control settings
+            upsert: false, // Optional: Set to true to overwrite if file exists, false to error
+          });
+
+        if (uploadError) {
+          console.error('Error uploading profile picture:', uploadError);
+          setFormError(`Failed to upload profile picture: ${uploadError.message}. Please try again or skip.`);
+          // Optionally, decide if you want to stop the form submission here or proceed without a photo
+          // For now, we'll let it proceed and the error will be shown.
+        } else {
+          // Get the public URL of the uploaded file
+          const { data: publicUrlData } = supabase.storage
+            .from('family-member-images')
+            .getPublicUrl(filePath);
+          
+          if (publicUrlData) {
+            photoUrl = publicUrlData.publicUrl;
+          } else {
+            console.error('Could not get public URL for the uploaded image.');
+            // setFormError('Uploaded image but could not get its URL. Please try again.'); // Optional: more specific error
+          }
+        }
+      } catch (uploadCatchError: any) {
+        console.error('Catch Error during profile picture upload:', uploadCatchError);
+        setFormError(`An unexpected error occurred during picture upload: ${uploadCatchError.message}.`);
+      }
+    }
+
     // Ensure generation is set, default to 1 if not provided or invalid.
     // The problem description mentions defaultGeneration from props, let's use that.
     // If defaultGeneration is null/undefined, or formData.generation is not a positive number,
@@ -247,6 +288,7 @@ const AddMemberForm: React.FC<AddMemberFormProps> = ({ onAdd, onCancel, existing
     const memberData: Partial<FamilyMember> = {
       ...familyMemberSpecificFormData, // Spread fields like name, gender, bio, etc.
       id: new Date().getTime().toString(), // Or use uuid if available and preferred
+      photo: photoUrl, // Add the photoUrl here
       generation: generation,
       partners: calculatedPartners, // Assign the processed array of names
       parents: parentId ? [parentId] : [], // Parents array based on single parentId
@@ -307,7 +349,24 @@ const AddMemberForm: React.FC<AddMemberFormProps> = ({ onAdd, onCancel, existing
                 // Removed 'required' here as we handle it in handleSubmit for better error message control
               />
             </div>
-            
+            <div>
+              <label htmlFor="profilePicture" className="block text-sm font-medium mb-2 dark:text-gray-300">
+                Profile Picture
+              </label>
+              <Input
+                id="profilePicture"
+                type="file"
+                accept="image/*" // Accept only image files
+                onChange={(e) => setProfilePictureFile(e.target.files ? e.target.files[0] : null)}
+                className="w-full p-2 border border-gray-300 rounded-md dark:bg-slate-900 dark:text-slate-200 dark:border-slate-700 dark:focus:border-emerald-500 dark:focus:ring-1 dark:focus:ring-emerald-500"
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4"> {/* This div is added to maintain the 2-column layout for Gender and subsequent fields if Name and Profile Pic take full width or are arranged differently*/}
+            {/* Profile Picture Input was added above Name, this section for Gender needs to be adjusted if layout changed */}
+            {/* Assuming Name and Profile Picture are in their own rows or adjusted in the first grid div */}
+            {/* If Profile Picture is next to Name, then Gender might be the first item in a new grid row or remain as is if the grid structure is maintained.*/}
+            {/* The previous diff added profile picture in a new div, then started a new grid. This should be fine. */}
             <div>
               <label className="block text-sm font-medium mb-2">Gender</label>
               <select

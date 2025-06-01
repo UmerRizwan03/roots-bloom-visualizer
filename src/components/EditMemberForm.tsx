@@ -1,6 +1,7 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { FamilyMember } from '../types/family';
+import { supabase } from '../lib/supabaseClient'; // Import Supabase
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
@@ -23,13 +24,15 @@ const EditMemberForm: React.FC<EditMemberFormProps> = ({ member, onSave, onCance
     otherPartnerNames: '', // New: Starts blank for editing session
     coParentName: member.coParentName || '', // Pre-fill from member.coParentName
   });
+  const [newProfilePictureFile, setNewProfilePictureFile] = useState<File | null>(null);
+  const [removeCurrentImage, setRemoveCurrentImage] = useState<boolean>(false);
 
   // Filter existingMembers to exclude the current member being edited
   const selectableParents = Array.isArray(existingMembers)
     ? existingMembers.filter(m => m.id !== member.id)
     : [];
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => { // Make async
     e.preventDefault();
     
     if (!formData.name) {
@@ -37,12 +40,83 @@ const EditMemberForm: React.FC<EditMemberFormProps> = ({ member, onSave, onCance
       return;
     }
 
+    let finalPhotoUrl: string | undefined = formData.photo; // Start with the current photo
+
+    // Helper to delete from storage - ensure this matches your actual storage structure
+    const deletePhotoFromStorage = async (photoUrlToDelete: string) => {
+      if (!photoUrlToDelete) return;
+      try {
+        const lastSlashIndex = photoUrlToDelete.lastIndexOf('/');
+        // Check if the URL format is as expected and extract the file name part
+        // This assumes the path in storage is 'public/filename.ext' and URL is '.../public/filename.ext'
+        // Adjust if your Supabase public URL structure or storage path prefix differs.
+        const pathSegmentIndex = photoUrlToDelete.indexOf('/public/');
+        if (lastSlashIndex > -1 && pathSegmentIndex > -1) {
+            // Extracts 'public/filename.ext' from the full URL
+            const filePathInBucket = photoUrlToDelete.substring(pathSegmentIndex + 1);
+             if (filePathInBucket) {
+                console.log(`Attempting to delete from storage: ${filePathInBucket}`);
+                const { error: deleteError } = await supabase.storage
+                    .from('family-member-images')
+                    .remove([filePathInBucket]);
+                if (deleteError) {
+                    console.warn("Error deleting photo from storage:", deleteError);
+                    // Optionally, alert the user or handle more gracefully
+                } else {
+                    console.log("Successfully deleted photo from storage:", filePathInBucket);
+                }
+            } else {
+                 console.warn("Could not extract valid file path from URL for deletion:", photoUrlToDelete);
+            }
+        } else {
+            console.warn("Photo URL does not seem to contain '/public/' segment or is not a valid path:", photoUrlToDelete);
+        }
+      } catch (e) {
+        console.warn("Exception during photo deletion from storage", e);
+      }
+    };
+    
+    if (removeCurrentImage) {
+      if (formData.photo) {
+        await deletePhotoFromStorage(formData.photo);
+      }
+      finalPhotoUrl = undefined;
+    }
+
+    if (newProfilePictureFile) {
+      // If there was an existing photo AND it's not the one just removed by removeCurrentImage, delete it.
+      if (formData.photo && formData.photo !== finalPhotoUrl) { 
+        await deletePhotoFromStorage(formData.photo);
+      }
+
+      const fileName = `${Date.now()}-${newProfilePictureFile.name}`;
+      const filePath = `public/${fileName}`;
+      
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('family-member-images')
+        .upload(filePath, newProfilePictureFile, {
+          cacheControl: '3600',
+          upsert: false, // Consider true if replacing the exact same file name is desired, though unlikely with timestamp
+        });
+
+      if (uploadError) {
+        console.error('Error uploading new profile picture:', uploadError);
+        alert(`Failed to upload new profile picture: ${uploadError.message}.`);
+        // If upload fails, current finalPhotoUrl (either old photo or undefined) will be used.
+      } else {
+        const { data: publicUrlData } = supabase.storage
+          .from('family-member-images')
+          .getPublicUrl(filePath);
+        finalPhotoUrl = publicUrlData?.publicUrl;
+      }
+    }
+
     const { 
       parentId, 
       spouseName, 
       otherPartnerNames,
-      coParentName, // Destructure coParentName
-      // partners, // Exclude old partners from direct spread if it exists in formData type
+      coParentName,
+      photo, // Exclude original photo from formData spread if it's handled by finalPhotoUrl
       ...memberSpecificFormData 
     } = formData;
 
@@ -53,18 +127,18 @@ const EditMemberForm: React.FC<EditMemberFormProps> = ({ member, onSave, onCance
 
     const memberToSave: FamilyMember = {
       ...memberSpecificFormData,
-      id: member.id, // Ensure original ID is preserved
+      id: member.id,
       parents: parentId ? [parentId] : [],
       partners: calculatedPartners,
-      spouse: undefined, // Ensure spouse ID field is cleared/undefined
-      coParentName: coParentName?.trim() || undefined, // Add coParentName, trimmed or undefined
-      // children are already part of memberSpecificFormData if handled correctly by initial spread
+      spouse: undefined, 
+      coParentName: coParentName?.trim() || undefined,
+      photo: finalPhotoUrl, // Use the determined photo URL
     };
 
     onSave(memberToSave);
   };
 
-  const handleInputChange = (field: keyof FamilyMember | 'parentId' | 'spouseName' | 'otherPartnerNames' | 'coParentName', value: any) => {
+  const handleInputChange = (field: keyof Omit<FamilyMember, 'photo'> | 'parentId' | 'spouseName' | 'otherPartnerNames' | 'coParentName', value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
@@ -272,14 +346,43 @@ const EditMemberForm: React.FC<EditMemberFormProps> = ({ member, onSave, onCance
             />
           </div>
 
+          {/* New Profile Picture Management Section */}
           <div>
-            <label className="block text-sm font-medium mb-2 dark:text-gray-300">Photo URL</label>
+            <label className="block text-sm font-medium mb-2 dark:text-gray-300">Profile Picture</label>
+            {formData.photo && !removeCurrentImage && (
+              <div className="mb-2">
+                <img src={formData.photo} alt="Current profile" className="w-24 h-24 object-cover rounded-md border border-gray-300" />
+                <Button variant="link" size="sm" onClick={() => {
+                  setRemoveCurrentImage(true);
+                  setNewProfilePictureFile(null); // Clear any newly selected file if removing
+                }} className="text-red-500 hover:text-red-700 mt-1">
+                  Remove current picture
+                </Button>
+              </div>
+            )}
+            {(removeCurrentImage || !formData.photo) && (
+               <p className="text-sm text-gray-500 mb-2">
+                 {removeCurrentImage ? "Current picture will be removed." : "No current picture."}
+               </p>
+            )}
             <Input
-              value={formData.photo || ''}
-              onChange={(e) => handleInputChange('photo', e.target.value)}
-              placeholder="https://..."
+              id="profilePicture"
+              type="file"
+              accept="image/*"
+              onChange={(e) => {
+                const file = e.target.files ? e.target.files[0] : null;
+                setNewProfilePictureFile(file);
+                if (file) { // If a new file is selected
+                  setRemoveCurrentImage(false); // Unset removal intention
+                }
+              }}
+              className="w-full p-2 border border-gray-300 rounded-md dark:bg-slate-900 dark:text-slate-200 dark:border-slate-700 dark:focus:border-emerald-500 dark:focus:ring-1 dark:focus:ring-emerald-500"
             />
+            {newProfilePictureFile && (
+              <p className="text-xs text-green-600 mt-1">New picture selected: {newProfilePictureFile.name}. This will replace the current picture upon saving.</p>
+            )}
           </div>
+          {/* End of New Profile Picture Management Section */}
 
           <div className="flex justify-end space-x-3 pt-4">
             <Button type="button" variant="outline" onClick={onCancel}>
