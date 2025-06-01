@@ -44,35 +44,44 @@ const EditMemberForm: React.FC<EditMemberFormProps> = ({ member, onSave, onCance
 
     // Helper to delete from storage - ensure this matches your actual storage structure
     const deletePhotoFromStorage = async (photoUrlToDelete: string) => {
-      if (!photoUrlToDelete) return;
+      if (!photoUrlToDelete) {
+        console.log("deletePhotoFromStorage: No photo URL provided, skipping deletion from storage.");
+        return;
+      }
       try {
-        const lastSlashIndex = photoUrlToDelete.lastIndexOf('/');
-        // Check if the URL format is as expected and extract the file name part
-        // This assumes the path in storage is 'public/filename.ext' and URL is '.../public/filename.ext'
-        // Adjust if your Supabase public URL structure or storage path prefix differs.
-        const pathSegmentIndex = photoUrlToDelete.indexOf('/public/');
-        if (lastSlashIndex > -1 && pathSegmentIndex > -1) {
-            // Extracts 'public/filename.ext' from the full URL
-            const filePathInBucket = photoUrlToDelete.substring(pathSegmentIndex + 1);
-             if (filePathInBucket) {
-                console.log(`Attempting to delete from storage: ${filePathInBucket}`);
-                const { error: deleteError } = await supabase.storage
-                    .from('family-member-images')
-                    .remove([filePathInBucket]);
-                if (deleteError) {
-                    console.warn("Error deleting photo from storage:", deleteError);
-                    // Optionally, alert the user or handle more gracefully
-                } else {
-                    console.log("Successfully deleted photo from storage:", filePathInBucket);
-                }
-            } else {
-                 console.warn("Could not extract valid file path from URL for deletion:", photoUrlToDelete);
-            }
+        // Example URL: https://<project-ref>.supabase.co/storage/v1/object/public/family-member-images/public/some-image.jpg
+        // We need to extract the path starting after the bucket name, e.g., "public/some-image.jpg"
+        
+        const storageBucketName = 'family-member-images'; // Make sure this matches your bucket name
+        const urlSegments = photoUrlToDelete.split('/');
+        const bucketNameIndex = urlSegments.indexOf(storageBucketName);
+
+        if (bucketNameIndex === -1) {
+          console.warn(`deletePhotoFromStorage: Could not find bucket name '${storageBucketName}' in URL: ${photoUrlToDelete}`);
+          return;
+        }
+
+        // The path in the bucket is everything after the bucket name segment
+        const filePathInBucket = urlSegments.slice(bucketNameIndex + 1).join('/');
+        
+        if (filePathInBucket) {
+          console.log(`deletePhotoFromStorage: Attempting to delete '${filePathInBucket}' from bucket '${storageBucketName}'.`);
+          const { error: deleteError } = await supabase.storage
+            .from(storageBucketName)
+            .remove([filePathInBucket]);
+
+          if (deleteError) {
+            console.warn(`deletePhotoFromStorage: Error deleting photo '${filePathInBucket}' from storage: ${deleteError.message}`, deleteError);
+          } else {
+            console.log(`deletePhotoFromStorage: Successfully deleted photo '${filePathInBucket}' from storage.`);
+          }
         } else {
-            console.warn("Photo URL does not seem to contain '/public/' segment or is not a valid path:", photoUrlToDelete);
+          console.warn(`deletePhotoFromStorage: Extracted empty file path from URL '${photoUrlToDelete}'. Cannot delete.`);
         }
       } catch (e) {
-        console.warn("Exception during photo deletion from storage", e);
+        // Type assertion for error object
+        const errorMessage = e instanceof Error ? e.message : String(e);
+        console.warn(`deletePhotoFromStorage: Exception during photo deletion from storage for URL '${photoUrlToDelete}': ${errorMessage}`, e);
       }
     };
     

@@ -105,7 +105,25 @@ const Index = () => {
       return;
     }
 
-    const { id, ...dataToUpdate } = updatedMember;
+  // Destructure to get all properties, including photo
+  const { id, ...memberProperties } = updatedMember;
+
+  // Prepare the data payload for Supabase
+  const dataToUpdate: Partial<FamilyMember> = { ...memberProperties };
+
+  // If updatedMember.photo is undefined or an empty string,
+  // explicitly set photo to null to clear it in the database.
+  // Otherwise, use the value from updatedMember.photo.
+  if (updatedMember.photo === undefined || updatedMember.photo === '') {
+    dataToUpdate.photo = null;
+  } else {
+    dataToUpdate.photo = updatedMember.photo;
+  }
+
+  // Ensure 'id' is not in dataToUpdate if your table policy or RLS handles it
+  // or if the 'id' field itself is not updatable.
+  // In this case, 'id' is used in .eq() and not in the update payload, which is correct.
+
     const { error } = await supabase
       .from('family_members')
       .update(dataToUpdate)
