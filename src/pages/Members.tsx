@@ -97,7 +97,7 @@ const Members = () => {
               <nav className="hidden md:flex space-x-8 mr-4"> 
                 <Link to="/" className="text-gray-600 dark:text-slate-300 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">Home</Link>
                 <Link to="/members" className="text-emerald-600 dark:text-emerald-400 font-medium">Members</Link>
-                <Link to="/magazines" className="text-gray-600 dark:text-slate-300 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">E-Magazines</Link>
+                <Link to="/magazines" className="text-gray-600 dark:text-slate-300 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">Magazines</Link>
               </nav>
               <ThemeToggleButton />
             </div>

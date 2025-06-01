@@ -26,7 +26,8 @@ interface FamilyTreeProps {
   searchQuery: string;
   onSetEditingMember: (member: FamilyMember) => void;
   onDeleteMember: (memberId: string) => void;
-  focusedMemberId?: string | null; 
+  focusedMemberId?: string | null;
+  canEdit: boolean; // Add canEdit prop
 }
 
 const nodeTypes = {
@@ -43,7 +44,7 @@ const layoutConfig: LayoutConfig = {
     // minFamilyBlockSpacing: 50, // Or remove if not used in the moved logic
 };
 
-const FamilyTree: React.FC<FamilyTreeProps> = ({ members, onMemberSelect, searchQuery, onSetEditingMember, onDeleteMember, focusedMemberId }) => {
+const FamilyTree: React.FC<FamilyTreeProps> = ({ members, onMemberSelect, searchQuery, onSetEditingMember, onDeleteMember, focusedMemberId, canEdit }) => {
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [collapsedStates, setCollapsedStates] = useState<Record<string, boolean>>({});
@@ -76,9 +77,10 @@ const FamilyTree: React.FC<FamilyTreeProps> = ({ members, onMemberSelect, search
       collapsedStates,
       focusedMemberId,
       memoizedCallbacks,
-      layoutConfig
+      layoutConfig,
+      canEdit // Pass canEdit to layoutFamilyTree
     );
-  }, [members, searchQuery, collapsedStates, focusedMemberId, memoizedCallbacks, layoutConfig]);
+  }, [members, searchQuery, collapsedStates, focusedMemberId, memoizedCallbacks, layoutConfig, canEdit]); // Add canEdit to dependency array
 
   // Update ReactFlow state when calculatedNodes or calculatedEdges change
   useEffect(() => {

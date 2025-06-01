@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react'; // Ensure useState is imported
+import React, { useState, useEffect, useMemo, useCallback } from 'react'; // Ensure useCallback is imported
 import { FamilyMember } from '../types/family';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -60,14 +60,34 @@ const AddMemberForm: React.FC<AddMemberFormProps> = ({ onAdd, onCancel, existing
   }, [existingMembers]);
 
   useEffect(() => {
-    // If defaultGeneration is provided, use it. Otherwise, default to the first available generation (which will be 1).
+    let initialGenerationToSet: number | undefined = undefined;
+
     if (defaultGeneration !== undefined && defaultGeneration !== null) {
-      handleInputChange('generation', defaultGeneration);
+      if (availableGenerations.includes(defaultGeneration)) {
+        initialGenerationToSet = defaultGeneration;
+      } else {
+        console.warn(`Provided defaultGeneration (${defaultGeneration}) is not valid or available. Defaulting to first available generation.`);
+        if (availableGenerations.length > 0) {
+          initialGenerationToSet = availableGenerations[0];
+        } else {
+          initialGenerationToSet = 1; // Absolute fallback
+        }
+      }
     } else if (formData.generation === undefined) {
-      handleInputChange('generation', availableGenerations[0] || 1);
+      if (availableGenerations.length > 0) {
+        initialGenerationToSet = availableGenerations[0];
+      } else {
+        initialGenerationToSet = 1; // Absolute fallback
+      }
+    }
+
+    if (initialGenerationToSet !== undefined) {
+      if (formData.generation !== initialGenerationToSet) {
+         handleInputChange('generation', initialGenerationToSet);
+      }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [availableGenerations, defaultGeneration]); // Dependencies are correct, want to run when these change
+  }, [availableGenerations, defaultGeneration, formData.generation]); // Updated dependencies
 
   const handleGenerationChange = (value: string) => {
       const genNumber = parseInt(value, 10);
@@ -90,6 +110,105 @@ const AddMemberForm: React.FC<AddMemberFormProps> = ({ onAdd, onCancel, existing
       }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData.generation, existingMembers]); // Re-run if generation or existingMembers change
+
+  const handleInputChange = (field: keyof FamilyMember | 'parentId' | 'spouseName' | 'otherPartnerNames' | 'coParentName', value: any) => {
+    setFormError(null); // Clear error when user starts typing
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  // Memoized event handlers
+  const handleNameChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    handleInputChange('name', event.target.value);
+  }, []);
+
+  const handleGenderChange = useCallback((event: React.ChangeEvent<HTMLSelectElement>) => {
+    handleInputChange('gender', event.target.value);
+  }, []);
+
+  const handleSpouseNameChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    handleInputChange('spouseName' as any, event.target.value);
+  }, []);
+
+  const handleOtherPartnerNamesChange = useCallback((event: React.ChangeEvent<HTMLTextAreaElement>) => {
+    handleInputChange('otherPartnerNames' as any, event.target.value);
+  }, []);
+
+  const handleParentChange = useCallback((newParentId: string) => {
+    setFormError(null); // Clear errors on interaction
+
+    if (newParentId) {
+      const selectedParent = existingMembers.find(member => member.id === newParentId);
+      if (selectedParent && typeof selectedParent.generation === 'number') {
+        const childGeneration = selectedParent.generation + 1;
+        // Update both parentId and generation
+        setFormData(prev => ({
+          ...prev,
+          parentId: newParentId,
+          generation: childGeneration
+        }));
+      } else {
+        // Parent not found, or parent has no generation number.
+        // Only update parentId. User will need to set generation manually.
+        setFormData(prev => ({ ...prev, parentId: newParentId }));
+      }
+    } else {
+      // No parent selected (newParentId is an empty string, e.g. placeholder selected)
+      // Only update parentId. User will manually set generation or it defaults.
+      setFormData(prev => ({ ...prev, parentId: newParentId }));
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [existingMembers]); // existingMembers is a dependency. 
+                         // setFormError and setFormData are stable.
+
+  const handleCoParentNameChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    handleInputChange('coParentName', event.target.value);
+  }, []);
+  
+  const handleBloodTypeChange = useCallback((event: React.ChangeEvent<HTMLSelectElement>) => {
+    handleInputChange('bloodType', event.target.value);
+  }, []);
+
+  const handleBirthDateChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    handleInputChange('birthDate', event.target.value);
+  }, []);
+  
+  const handleDeathDateChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    handleInputChange('deathDate', event.target.value);
+  }, []);
+
+  const handleMobileNumberChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    handleInputChange('mobileNumber', event.target.value);
+  }, []);
+
+  const handleEmailChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    handleInputChange('email', event.target.value);
+  }, []);
+  
+  const handleBirthPlaceChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    handleInputChange('birthPlace', event.target.value);
+  }, []);
+
+  const handleOccupationChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    handleInputChange('occupation', event.target.value);
+  }, []);
+
+  const handleBioChange = useCallback((event: React.ChangeEvent<HTMLTextAreaElement>) => {
+    handleInputChange('bio', event.target.value);
+  }, []);
+
+  // Memoize parent options
+  const parentOptions = useMemo(() => {
+    if (!Array.isArray(existingMembers)) {
+      console.warn("existingMembers is not an array in AddMemberForm. Skipping parent options generation.");
+      return [];
+    }
+    return existingMembers.map((member) => (
+      <SelectItem key={member.id} value={member.id}>
+        {member.name}
+      </SelectItem>
+    ));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [existingMembers]);
 
   const handleSubmit = async (e: React.FormEvent) => { // Make handleSubmit async
     e.preventDefault();
@@ -145,11 +264,6 @@ const AddMemberForm: React.FC<AddMemberFormProps> = ({ onAdd, onCancel, existing
     }
   };
 
-  const handleInputChange = (field: keyof FamilyMember | 'parentId' | 'spouseName' | 'otherPartnerNames' | 'coParentName', value: any) => {
-    setFormError(null); // Clear error when user starts typing
-    setFormData(prev => ({ ...prev, [field]: value }));
-  };
-
   // Removed generateId as id is now new Date().getTime().toString() or handled by parent
   // const generateId = (name: string) => {
   // return `${name.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}`;
@@ -188,7 +302,7 @@ const AddMemberForm: React.FC<AddMemberFormProps> = ({ onAdd, onCancel, existing
 
               <Input
                 value={formData.name || ''}
-                onChange={(e) => handleInputChange('name', e.target.value)}
+                onChange={handleNameChange}
                 placeholder="Full name"
                 // Removed 'required' here as we handle it in handleSubmit for better error message control
               />
@@ -198,7 +312,7 @@ const AddMemberForm: React.FC<AddMemberFormProps> = ({ onAdd, onCancel, existing
               <label className="block text-sm font-medium mb-2">Gender</label>
               <select
                 value={formData.gender}
-                onChange={(e) => handleInputChange('gender', e.target.value)}
+                onChange={handleGenderChange}
                 className="w-full p-2 border border-gray-300 rounded-md dark:bg-slate-900 dark:text-slate-200 dark:border-slate-700 dark:focus:border-emerald-500 dark:focus:ring-1 dark:focus:ring-emerald-500"
               >
                 <option value="male">Male</option>
@@ -217,7 +331,7 @@ const AddMemberForm: React.FC<AddMemberFormProps> = ({ onAdd, onCancel, existing
               id="spouseName"
               name="spouseName"
               value={formData.spouseName || ''}
-              onChange={(e) => handleInputChange('spouseName' as any, e.target.value)}
+              onChange={handleSpouseNameChange}
               placeholder="Spouse's full name"
               // Assuming Input component already has appropriate dark theme styling from ui/input
             />
@@ -233,31 +347,29 @@ const AddMemberForm: React.FC<AddMemberFormProps> = ({ onAdd, onCancel, existing
               name="otherPartnerNames"
               rows={3}
               value={formData.otherPartnerNames || ''}
-              onChange={(e) => handleInputChange('otherPartnerNames' as any, e.target.value)}
+              onChange={handleOtherPartnerNamesChange}
               placeholder="e.g., Partner A, Partner B"
               className="w-full p-2 border border-gray-300 rounded-md dark:bg-slate-900 dark:text-slate-200 dark:border-slate-700 dark:placeholder-slate-500 dark:focus:border-emerald-500 dark:focus:ring-1 dark:focus:ring-emerald-500"
             />
           </div>
 
-          {/* Single Parent Dropdown */}
+          {/* Single Parent Dropdown with Shadcn Select */}
           <div>
-            <label htmlFor="parentId" className="block text-sm font-medium mb-2 dark:text-gray-300">
+            <label htmlFor="parentId-select" className="block text-sm font-medium mb-2 dark:text-gray-300">
               Parent
             </label>
-            <select
-              id="parentId"
-              name="parentId" // Ensure name matches the state key for handleInputChange
+            <Select
               value={formData.parentId || ''}
-              onChange={(e) => handleInputChange('parentId' as any, e.target.value)} // Cast 'parentId' for type safety if needed
-              className="w-full p-2 border border-gray-300 rounded-md dark:bg-slate-900 dark:text-slate-200 dark:border-slate-700 dark:focus:border-emerald-500 dark:focus:ring-1 dark:focus:ring-emerald-500"
+              onValueChange={handleParentChange}
             >
-              <option value="">Select a parent (optional)</option>
-              {existingMembers.map((member) => (
-                <option key={member.id} value={member.id}>
-                  {member.name}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger id="parentId-select" className="w-full">
+                <SelectValue placeholder="Select a parent (optional)" />
+              </SelectTrigger>
+              <SelectContent className="z-[60]">
+                {/* The <SelectItem value=""> line has been removed from here */}
+                {parentOptions}
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Co-parent's Name Input */}
@@ -270,7 +382,7 @@ const AddMemberForm: React.FC<AddMemberFormProps> = ({ onAdd, onCancel, existing
               id="coParentName"
               name="coParentName"
               value={formData.coParentName || ''}
-              onChange={(e) => handleInputChange('coParentName', e.target.value)}
+              onChange={handleCoParentNameChange}
               placeholder="Enter co-parent's name"
               // Assuming Input component already has appropriate dark theme styling from ui/input
             />
@@ -288,7 +400,7 @@ const AddMemberForm: React.FC<AddMemberFormProps> = ({ onAdd, onCancel, existing
                 <SelectTrigger id="generation-select" className="w-full">
                   <SelectValue placeholder="Select generation" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="z-[60]">
                   {availableGenerations.map(gen => (
                     <SelectItem key={gen} value={String(gen)}>
                       Generation {gen}
@@ -307,7 +419,7 @@ const AddMemberForm: React.FC<AddMemberFormProps> = ({ onAdd, onCancel, existing
               <label className="block text-sm font-medium mb-2">Blood Type</label>
               <select
                 value={formData.bloodType || ''}
-                onChange={(e) => handleInputChange('bloodType', e.target.value)}
+                onChange={handleBloodTypeChange}
                 className="w-full p-2 border border-gray-300 rounded-md dark:bg-slate-900 dark:text-slate-200 dark:border-slate-700 dark:focus:border-emerald-500 dark:focus:ring-1 dark:focus:ring-emerald-500"
               >
                 <option value="">Select blood type</option>
@@ -329,7 +441,7 @@ const AddMemberForm: React.FC<AddMemberFormProps> = ({ onAdd, onCancel, existing
               <Input
                 type="date"
                 value={formData.birthDate || ''}
-                onChange={(e) => handleInputChange('birthDate', e.target.value)}
+                onChange={handleBirthDateChange}
               />
             </div>
 
@@ -338,7 +450,7 @@ const AddMemberForm: React.FC<AddMemberFormProps> = ({ onAdd, onCancel, existing
               <Input
                 type="date"
                 value={formData.deathDate || ''}
-                onChange={(e) => handleInputChange('deathDate', e.target.value)}
+                onChange={handleDeathDateChange}
               />
             </div>
           </div>
@@ -348,7 +460,7 @@ const AddMemberForm: React.FC<AddMemberFormProps> = ({ onAdd, onCancel, existing
               <label className="block text-sm font-medium mb-2">Mobile Number</label>
               <Input
                 value={formData.mobileNumber || ''}
-                onChange={(e) => handleInputChange('mobileNumber', e.target.value)}
+                onChange={handleMobileNumberChange}
                 placeholder="e.g., +1234567890"
               />
             </div>
@@ -357,7 +469,7 @@ const AddMemberForm: React.FC<AddMemberFormProps> = ({ onAdd, onCancel, existing
               <Input
                 type="email"
                 value={formData.email || ''}
-                onChange={(e) => handleInputChange('email', e.target.value)}
+                onChange={handleEmailChange}
                 placeholder="e.g., example@example.com"
               />
             </div>
@@ -367,7 +479,7 @@ const AddMemberForm: React.FC<AddMemberFormProps> = ({ onAdd, onCancel, existing
             <label className="block text-sm font-medium mb-2">Birth Place</label>
             <Input
               value={formData.birthPlace || ''}
-              onChange={(e) => handleInputChange('birthPlace', e.target.value)}
+              onChange={handleBirthPlaceChange}
               placeholder="City, Country"
             />
           </div>
@@ -376,7 +488,7 @@ const AddMemberForm: React.FC<AddMemberFormProps> = ({ onAdd, onCancel, existing
             <label className="block text-sm font-medium mb-2">Occupation</label>
             <Input
               value={formData.occupation || ''}
-              onChange={(e) => handleInputChange('occupation', e.target.value)}
+              onChange={handleOccupationChange}
               placeholder="e.g., Engineer, Artist"
             />
           </div>
@@ -385,7 +497,7 @@ const AddMemberForm: React.FC<AddMemberFormProps> = ({ onAdd, onCancel, existing
             <label className="block text-sm font-medium mb-2">Bio</label>
             <textarea
               value={formData.bio || ''}
-              onChange={(e) => handleInputChange('bio', e.target.value)}
+              onChange={handleBioChange}
               placeholder="A short biography..."
               rows={4}
               className="w-full p-2 border border-gray-300 rounded-md dark:bg-slate-900 dark:text-slate-200 dark:border-slate-700 dark:placeholder-slate-500 dark:focus:border-emerald-500 dark:focus:ring-1 dark:focus:ring-emerald-500"

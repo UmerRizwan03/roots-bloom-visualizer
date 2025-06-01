@@ -11,6 +11,10 @@ import { supabase } from '../lib/supabaseClient';
 import AddMemberForm from '../components/AddMemberForm';
 import EditMemberForm from '../components/EditMemberForm';
 import { v4 as uuidv4 } from 'uuid';
+import { useAuth } from '@/contexts/AuthContext';
+import LoginForm from '../components/auth/LoginForm'; // Import LoginForm
+import SignUpForm from '../components/auth/SignUpForm'; // Import SignUpForm
+import { Dialog, DialogContent } from "@/components/ui/dialog"; // Import Dialog components
 import {
   Sheet,
   SheetContent,
@@ -19,7 +23,10 @@ import {
 } from "@/components/ui/sheet";
 
 const Index = () => {
+  const { user, loading: authLoading, signOut } = useAuth(); // Get auth state, including signOut
   const [selectedMember, setSelectedMember] = useState<FamilyMember | null>(null);
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false); // Add state for login modal
+  const [isSignUpModalOpen, setIsSignUpModalOpen] = useState(false); // Add state for sign up modal
   const [isAddMemberModalOpen, setIsAddMemberModalOpen] = useState(false);
   const [members, setMembers] = useState<FamilyMember[]>([]); 
   const [editingMember, setEditingMember] = useState<FamilyMember | null>(null);
@@ -51,6 +58,12 @@ const Index = () => {
   }, [fetchMembers]); 
 
   const handleAddMember = useCallback(async (memberData: Partial<FamilyMember>) => {
+    if (!user) { // Add this check
+      console.error("User not authenticated. Cannot add member.");
+      setFetchError("You must be logged in to add a member."); // Optionally set user-facing error
+      return;
+    }
+
     const id = uuidv4(); 
     const payload = {
       ...memberData,
@@ -74,7 +87,7 @@ const Index = () => {
       await fetchMembers(); 
       setIsAddMemberModalOpen(false); 
     }
-  }, [fetchMembers]); 
+  }, [fetchMembers, user]); // Add user to dependency array
 
   const handleSetEditingMember = useCallback((memberToEdit: FamilyMember | null) => {
     if (memberToEdit) {
@@ -86,6 +99,12 @@ const Index = () => {
   }, [members]); 
 
   const handleSaveEditedMember = useCallback(async (updatedMember: FamilyMember) => {
+    if (!user) { // Add this check
+      console.error("User not authenticated. Cannot save member.");
+      setFetchError("You must be logged in to save changes."); // Optionally set user-facing error
+      return;
+    }
+
     const { id, ...dataToUpdate } = updatedMember;
     const { error } = await supabase
       .from('family_members')
@@ -98,9 +117,15 @@ const Index = () => {
       await fetchMembers(); 
       setEditingMember(null); 
     }
-  }, [fetchMembers]); 
+  }, [fetchMembers, user]); // Add user
 
   const handleDeleteMember = useCallback(async (memberId: string) => {
+    if (!user) { // Add this check
+      console.error("User not authenticated. Cannot delete member.");
+      setFetchError("You must be logged in to delete a member."); // Optionally set user-facing error
+      return;
+    }
+
     const { error } = await supabase
       .from('family_members')
       .delete()
@@ -117,7 +142,7 @@ const Index = () => {
         setEditingMember(null);
       }
     }
-  }, [fetchMembers, selectedMember, editingMember]); 
+  }, [fetchMembers, selectedMember, editingMember, user]); // Add user
 
   const handleMemberSelect = useCallback((member: FamilyMember) => {
     setSelectedMember(member);
@@ -165,15 +190,42 @@ const Index = () => {
               <nav className="hidden md:flex space-x-8 mr-4">
                 <Link to="/" className="text-emerald-600 dark:text-emerald-400 font-medium">Home</Link>
                 <Link to="/members" className="text-gray-600 dark:text-slate-300 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">Members</Link>
-                <Link to="/magazines" className="text-gray-600 dark:text-slate-300 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">E-Magazines</Link>
+                <Link to="/magazines" className="text-gray-600 dark:text-slate-300 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">Magazines</Link>
               </nav>
-              <Button 
-                variant="outline" 
-                className="mr-2"
-                onClick={() => setIsAddMemberModalOpen(true)}
-              >
-                <UserPlus className="mr-2 h-4 w-4" /> Add Member
-              </Button>
+              {!authLoading && user && ( // Check for authLoading and user
+                <Button 
+                  variant="outline" 
+                  className="mr-2"
+                  onClick={() => setIsAddMemberModalOpen(true)}
+                >
+                  <UserPlus className="mr-2 h-4 w-4" /> Add Member
+                </Button>
+              )}
+
+              {/* New Auth Navigation START */}
+              {authLoading ? (
+                <span className="text-sm text-gray-500 dark:text-gray-400 mr-2">Loading...</span>
+              ) : user ? (
+                <>
+                  <span className="text-sm text-gray-700 dark:text-gray-300 mr-3 hidden sm:inline">
+                    Hi, {user.email?.split('@')[0]}
+                  </span>
+                  <Button variant="outline" onClick={signOut} className="mr-2">
+                    Logout
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button variant="outline" onClick={() => setIsLoginModalOpen(true)} className="mr-2">
+                    Login
+                  </Button>
+                  <Button variant="default" onClick={() => setIsSignUpModalOpen(true)} className="mr-2">
+                    Sign Up
+                  </Button>
+                </>
+              )}
+              {/* New Auth Navigation END */}
+
               <Button
                 variant="outline"
                 size="icon" 
@@ -259,6 +311,22 @@ const Index = () => {
           onCancel={() => setEditingMember(null)}
           existingMembers={members} 
         />
+      )}
+
+      {isLoginModalOpen && (
+        <Dialog open={isLoginModalOpen} onOpenChange={setIsLoginModalOpen}>
+          <DialogContent className="sm:max-w-md">
+            <LoginForm onLoginSuccess={() => setIsLoginModalOpen(false)} />
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {isSignUpModalOpen && (
+        <Dialog open={isSignUpModalOpen} onOpenChange={setIsSignUpModalOpen}>
+          <DialogContent className="sm:max-w-md">
+            <SignUpForm onSignUpSuccess={() => setIsSignUpModalOpen(false)} />
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   );

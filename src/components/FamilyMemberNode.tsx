@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Handle, Position } from '@xyflow/react';
-import { User, Calendar, MapPin, Briefcase, Edit, Trash2, PlusCircle, MinusCircle } from 'lucide-react'; // Added PlusCircle, MinusCircle
+import { User, Calendar, Briefcase, Edit, Trash2, PlusCircle, MinusCircle, Phone } from 'lucide-react'; // Added Phone, removed MapPin
 import { FamilyMember } from '../types/family';
 
 interface FamilyMemberNodeProps {
@@ -125,34 +125,45 @@ const FamilyMemberNode: React.FC<FamilyMemberNodeProps> = ({ data }) => {
 
         {/* Content */}
         <div className="pt-8 pb-4 px-4 space-y-3">
-          {/* Name */}
-          <div className="text-center">
-            <h3 className="font-semibold text-slate-900 text-sm leading-tight mb-1">
-              {member.name}
+          {/* Name and Age Section */}
+          <div className="text-center min-h-[4rem]">
+            <h3 className="font-semibold text-slate-900 text-sm leading-tight mb-1 min-h-[2.5rem] flex items-center justify-center">
+              <span className="truncate max-w-full">{member.name}</span>
             </h3>
-            {age && (
-              <div className="flex items-center justify-center text-xs text-slate-500">
-                <Calendar className="w-3 h-3 mr-1" />
-                <span>{age} years old</span>
-              </div>
-            )}
+            <div className="min-h-[1.25rem] flex items-center justify-center"> {/* Approx 1 line height for age */}
+              {age && (
+                <div className="flex items-center text-xs text-slate-500">
+                  <Calendar className="w-3 h-3 mr-1" />
+                  <span>{age} years old</span>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Details */}
           <div className="space-y-2">
-            {member.birthPlace && (
-              <div className="flex items-center text-xs text-slate-600 bg-slate-50 rounded-lg px-2 py-1">
-                <MapPin className="w-3 h-3 mr-2 text-slate-400 flex-shrink-0" />
-                <span className="truncate">{member.birthPlace}</span>
-              </div>
-            )}
+            {/* Mobile Number Display */}
+            <div className="flex items-center text-xs text-slate-600 bg-slate-50 rounded-lg px-2 py-1 min-h-[2rem]"> {/* min-h-8 */}
+              {member.mobileNumber ? (
+                <>
+                  <Phone className="w-3 h-3 mr-2 text-slate-400 flex-shrink-0" />
+                  <span className="truncate">{member.mobileNumber}</span>
+                </>
+              ) : (
+                <span>&nbsp;</span>
+              )}
+            </div>
             
-            {member.occupation && (
-              <div className="flex items-center text-xs text-slate-600 bg-slate-50 rounded-lg px-2 py-1">
-                <Briefcase className="w-3 h-3 mr-2 text-slate-400 flex-shrink-0" />
-                <span className="truncate">{member.occupation}</span>
-              </div>
-            )}
+            <div className="flex items-center text-xs text-slate-600 bg-slate-50 rounded-lg px-2 py-1 min-h-[2rem]"> {/* min-h-8 */}
+              {member.occupation ? (
+                <>
+                  <Briefcase className="w-3 h-3 mr-2 text-slate-400 flex-shrink-0" />
+                  <span className="truncate">{member.occupation}</span>
+                </>
+              ) : (
+                <span>&nbsp;</span>
+              )}
+            </div>
           </div>
         </div>
 

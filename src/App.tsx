@@ -8,24 +8,27 @@ import Index from "./pages/Index";
 import Members from "./pages/Members";
 import Magazines from "./pages/Magazines";
 import NotFound from "./pages/NotFound";
+import { AuthProvider } from "./contexts/AuthContext"; // Import AuthProvider
 
 const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/members" element={<Members />} />
-          <Route path="/magazines" element={<Magazines />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
+    <AuthProvider> {/* Wrap with AuthProvider */}
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<Index />} />
+            <Route path="/members" element={<Members />} />
+            <Route path="/magazines" element={<Magazines />} />
+            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
+      </TooltipProvider>
+    </AuthProvider> {/* Close AuthProvider */}
   </QueryClientProvider>
 );
 

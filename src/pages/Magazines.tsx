@@ -24,6 +24,7 @@ export interface Magazine {
   pages: number;
   redirectUrl: string;
   pdfUrl: string;
+  pdf_storage_path: string; // Added for delete functionality
 }
 
 const Magazines = () => {
@@ -32,10 +33,11 @@ const Magazines = () => {
   const [isLoadingMagazines, setIsLoadingMagazines] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false); // For submission loading state
+  const [isAdmin, setIsAdmin] = useState(false);
 
   // Function to fetch magazines from Supabase
   async function fetchMagazines() {
-    setIsLoadingMagazines(true);
+    // Note: setIsLoadingMagazines(true) will be called by the useEffect hook
     setFetchError(null);
 
     const { data: magazineRecords, error } = await supabase
@@ -66,6 +68,7 @@ const Magazines = () => {
           pages: record.pages,
           redirectUrl: record.redirect_url || '', // from DB: redirect_url
           pdfUrl: pdfPublicUrl,
+          pdf_storage_path: record.pdf_storage_path || '', // Added for delete functionality
         };
       }));
       setUploadedMagazines(processedMagazines);
@@ -74,10 +77,47 @@ const Magazines = () => {
   }
 
   useEffect(() => {
-    fetchMagazines();
-  }, []);
+    const checkUserAndFetchMagazines = async () => {
+      setIsLoadingMagazines(true); // Set loading true at the beginning
+
+      // Fetch user
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+
+      if (userError) {
+        if (userError.message === "Auth session missing!") {
+          // This specific error means the user is not logged in, don't show a user-facing error toast.
+          // console.log("User session not found (logged out):", userError.message); // Optional: for debugging if needed
+          setIsAdmin(false);
+        } else {
+          // For any other actual error, log it and show a toast.
+          console.error('Error fetching user session:', userError);
+          toast.error(`Error fetching user session: ${userError.message}`);
+          setIsAdmin(false);
+        }
+      } else if (user) {
+        // User is logged in
+        const userIsAdmin = user.app_metadata?.app_role === 'admin' || false;
+        setIsAdmin(userIsAdmin);
+      } else {
+        // User is not logged in (user is null, userError is null - this case might be less likely if "Auth session missing!" error is always thrown for logged out)
+        // console.log("User is null and no error (logged out)."); // Optional: for debugging
+        setIsAdmin(false);
+      }
+
+      // Fetch magazines (existing logic)
+      // fetchMagazines itself will set isLoadingMagazines to false and handle its own errors.
+      await fetchMagazines(); 
+    };
+
+    checkUserAndFetchMagazines();
+  }, []); // Empty dependency array, runs once on mount
 
   const handleAddMagazine = async (data: NewMagazineData) => {
+    if (!isAdmin) {
+      toast.error("Unauthorized: Only admins can add magazines.");
+      // setIsSubmitting(false); // No need to set isSubmitting here as it's set true on the next line
+      return;
+    }
     setIsSubmitting(true);
     toast.info("Uploading PDF...", { id: "upload-toast" });
 
@@ -140,6 +180,53 @@ const Magazines = () => {
     setIsSubmitting(false);
   }; // End of handleAddMagazine
 
+  const handleDeleteMagazine = async (magazineId: string | number, pdfStoragePath: string) => {
+    if (!isAdmin) {
+      toast.error("Unauthorized: Only admins can delete magazines.");
+      return;
+    }
+
+    if (!window.confirm("Are you sure you want to delete this magazine? This action cannot be undone.")) {
+      return;
+    }
+
+    const deleteToastId = `delete-${magazineId}`;
+    toast.loading("Deleting magazine...", { id: deleteToastId });
+
+    // Delete from Supabase Storage
+    if (pdfStoragePath && pdfStoragePath.trim() !== '') {
+      const { error: storageError } = await supabase.storage
+        .from('emagazines') // Ensure this is your correct bucket name
+        .remove([pdfStoragePath]);
+
+      if (storageError) {
+        console.error('Error deleting PDF from storage:', storageError);
+        toast.error(`Failed to delete magazine PDF: ${storageError.message}. DB record may still exist.`, { id: deleteToastId });
+        // Continue to attempt DB deletion despite storage error, but the admin is notified.
+      } else {
+        toast.success("Magazine PDF deleted from storage.", { id: deleteToastId });
+      }
+    } else {
+      toast.info("No PDF storage path found, skipping storage deletion.", { id: deleteToastId });
+    }
+
+    // Delete from Supabase Database
+    const { error: dbError } = await supabase
+      .from('magazines')
+      .delete()
+      .match({ id: magazineId });
+
+    if (dbError) {
+      console.error('Error deleting magazine from database:', dbError);
+      toast.error(`Failed to delete magazine from database: ${dbError.message}`, { id: deleteToastId });
+      return;
+    }
+
+    toast.success("Magazine deleted successfully!", { id: deleteToastId, duration: 4000 });
+    await fetchMagazines(); // Re-fetch to update the UI
+  };
+
+
   // Start of the return statement for the component
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-green-50 dark:from-slate-900 dark:via-slate-800 dark:to-gray-900 py-8">
@@ -154,7 +241,7 @@ const Magazines = () => {
               <nav className="hidden md:flex space-x-8 mr-4">
                 <Link to="/" className="text-gray-600 dark:text-slate-300 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">Home</Link>
                 <Link to="/members" className="text-gray-600 dark:text-slate-300 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">Members</Link>
-                <Link to="/magazines" className="text-emerald-600 dark:text-emerald-400 font-medium">E-Magazines</Link>
+                <Link to="/magazines" className="text-emerald-600 dark:text-emerald-400 font-medium">Magazines</Link>
               </nav>
               <ThemeToggleButton />
             </div>
@@ -164,7 +251,7 @@ const Magazines = () => {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold text-gray-900 dark:text-slate-100 mb-4">Family E-Magazines</h1>
+          <h1 className="text-4xl font-bold text-gray-900 dark:text-slate-100 mb-4">Family Magazines</h1>
           <p className="text-xl text-gray-600 dark:text-slate-300 max-w-3xl mx-auto">
             Discover our collection of digital family magazines, featuring stories, photos, and memories 
             that celebrate our family heritage and milestones.
@@ -190,11 +277,13 @@ const Magazines = () => {
             {/* Dialog for Adding Magazine */}
             <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
             <DialogTrigger asChild>
-              <Card className="flex flex-col items-center justify-center text-center p-6 cursor-pointer hover:shadow-xl transition-all duration-300 group min-h-[480px] dark:bg-slate-800 hover:dark:bg-slate-700"> {/* Adjusted min-height */}
-                <PlusCircle className="w-16 h-16 text-emerald-500 dark:text-emerald-400 mb-4" />
-                <h3 className="text-lg font-semibold text-gray-700 dark:text-slate-200">Add New Magazine</h3>
-                <p className="text-sm text-gray-500 dark:text-slate-400 mt-1">Click to upload a new issue.</p>
-              </Card>
+              {isAdmin && ( // Conditionally render based on isAdmin
+                <Card className="flex flex-col items-center justify-center text-center p-6 cursor-pointer hover:shadow-xl transition-all duration-300 group min-h-[480px] dark:bg-slate-800 hover:dark:bg-slate-700"> {/* Adjusted min-height */}
+                  <PlusCircle className="w-16 h-16 text-emerald-500 dark:text-emerald-400 mb-4" />
+                  <h3 className="text-lg font-semibold text-gray-700 dark:text-slate-200">Add New Magazine</h3>
+                  <p className="text-sm text-gray-500 dark:text-slate-400 mt-1">Click to upload a new issue.</p>
+                </Card>
+              )}
             </DialogTrigger>
             <DialogContent className="sm:max-w-[600px] dark:bg-slate-800">
               <DialogHeader>
@@ -263,6 +352,17 @@ const Magazines = () => {
                       <span>Download</span>
                     </a>
                   </div>
+                  {isAdmin && (
+                    <div className="mt-4 px-6 pb-4">
+                      <button
+                        onClick={() => handleDeleteMagazine(magazine.id, magazine.pdf_storage_path)}
+                        className="w-full bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg flex items-center justify-center space-x-2 transition-colors"
+                      >
+                        {/* Using a simple button, can be replaced with <Button variant="destructive"> if available and preferred */}
+                        <span>Delete Magazine</span>
+                      </button>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             ))}
