@@ -201,9 +201,13 @@ const Index = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center space-x-3">
-              <TreePine className="h-8 w-8 text-emerald-600 dark:text-emerald-400" />
-              <h1 className="text-2xl font-bold text-emerald-800 dark:text-emerald-300">Unity Valiyangadi</h1>
-            </div>
+  <img
+    src="/unityLogo.png" // Replace with your custom logo path
+    alt="Custom Icon"
+    className="h-8 w-8"
+  />
+  <h1 className="text-2xl font-bold text-emerald-800 dark:text-emerald-300">Unity Valiyangadi</h1>
+</div>
             <div className="flex items-center">
               <nav className="hidden md:flex space-x-8 mr-4">
                 <Link to="/" className="text-emerald-600 dark:text-emerald-400 font-medium">Home</Link>
