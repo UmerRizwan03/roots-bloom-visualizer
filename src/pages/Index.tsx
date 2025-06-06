@@ -206,7 +206,7 @@ const Index = () => {
       <header className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm border-b border-emerald-100 dark:border-slate-700 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-3">
+            <div className="flex items-center space-x-3 flex-shrink-0"> {/* Added flex-shrink-0 */}
   <img
     src="/unityLogo.png" // Replace with your custom logo path
     alt="Custom Icon"
@@ -214,7 +214,7 @@ const Index = () => {
   />
   <h1 className="text-2xl font-bold text-emerald-800 dark:text-emerald-300">Unity Valiyangadi</h1>
 </div>
-            <div className="flex items-center">
+            <div className="flex items-center min-w-0"> {/* Added min-w-0 */}
               <nav className="hidden md:flex space-x-8 mr-4">
                 <Link to="/" className="text-emerald-600 dark:text-emerald-400 font-medium">Home</Link>
                 <Link to="/members" className="text-gray-600 dark:text-slate-300 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">Members</Link>
@@ -264,7 +264,9 @@ const Index = () => {
                 {isDrawerOpen ? <PanelRightClose className="h-5 w-5" /> : <PanelRightOpen className="h-5 w-5" />} 
               </Button>
 
-              {/* Mobile Navigation Menu */}
+              <ThemeToggleButton />
+
+              {/* Mobile Navigation Menu (moved to be the last item) */}
               <div className="md:hidden ml-2">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -286,8 +288,6 @@ const Index = () => {
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
-
-              <ThemeToggleButton />
             </div>
           </div>
         </div>
