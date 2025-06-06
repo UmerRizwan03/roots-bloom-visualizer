@@ -1,7 +1,7 @@
 
-import React from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { Handle, Position } from '@xyflow/react';
-import { User, Calendar, Briefcase, Edit, Trash2, PlusCircle, MinusCircle, Phone } from 'lucide-react'; // Added Phone, removed MapPin
+import { User, Calendar, Briefcase, Edit, Trash2, PlusCircle, MinusCircle, Phone } from 'lucide-react';
 import { FamilyMember } from '../types/family';
 
 interface FamilyMemberNodeProps {
@@ -11,13 +11,14 @@ interface FamilyMemberNodeProps {
     onEdit: (member: FamilyMember) => void;
     onDelete: (memberId: string) => void;
     isHighlighted?: boolean;
-    isCollapsed?: boolean; // Added isCollapsed
-    onToggleCollapse?: (memberId: string) => void; // Added onToggleCollapse
-    hasChildren?: boolean; // Added hasChildren
+    isCollapsed?: boolean;
+    onToggleCollapse?: (memberId: string) => void;
+    hasChildren?: boolean;
+    // Consider adding canEdit if it determines button visibility and can change
   };
 }
 
-const FamilyMemberNode: React.FC<FamilyMemberNodeProps> = ({ data }) => {
+const FamilyMemberNodeInternal: React.FC<FamilyMemberNodeProps> = ({ data }) => {
   const { 
     member, 
     onSelect, 
@@ -29,33 +30,35 @@ const FamilyMemberNode: React.FC<FamilyMemberNodeProps> = ({ data }) => {
     hasChildren 
   } = data;
 
-  const handleClick = () => {
+  const handleClick = useCallback(() => {
     onSelect(member);
-  };
+  }, [member, onSelect]);
 
-  const handleEdit = (e: React.MouseEvent) => {
+  const handleEdit = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
     onEdit(member);
-  };
+  }, [member, onEdit]);
 
-  const handleDelete = (e: React.MouseEvent) => {
+  const handleDelete = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
     if (confirm(`Are you sure you want to delete ${member.name}?`)) {
       onDelete(member.id);
     }
-  };
+  }, [member.id, member.name, onDelete]);
 
-  const currentYear = new Date().getFullYear();
-  const birthYear = member.birthDate ? new Date(member.birthDate).getFullYear() : null;
-  const deathYear = member.deathDate ? new Date(member.deathDate).getFullYear() : null;
-  const age = deathYear ? deathYear - (birthYear || 0) : (birthYear ? currentYear - birthYear : null);
+  const age = useMemo(() => {
+    const currentYear = new Date().getFullYear();
+    const birthYear = member.birthDate ? new Date(member.birthDate).getFullYear() : null;
+    const deathYear = member.deathDate ? new Date(member.deathDate).getFullYear() : null;
+    return deathYear ? deathYear - (birthYear || 0) : (birthYear ? currentYear - birthYear : null);
+  }, [member.birthDate, member.deathDate]);
 
-  const handleToggleCollapse = (e: React.MouseEvent) => {
+  const handleToggleCollapse = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
     if (onToggleCollapse) {
       onToggleCollapse(member.id);
     }
-  };
+  }, [member.id, onToggleCollapse]);
 
   return (
     <div className="family-member-node">
@@ -201,4 +204,4 @@ const FamilyMemberNode: React.FC<FamilyMemberNodeProps> = ({ data }) => {
   );
 };
 
-export default FamilyMemberNode;
+export default React.memo(FamilyMemberNodeInternal);

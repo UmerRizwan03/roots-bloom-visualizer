@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState, useMemo } from 'react'; 
+import React, { useCallback, useEffect, useState, useMemo, useRef } from 'react'; 
 import {
   ReactFlow,
   useNodesState,
@@ -48,6 +48,31 @@ const FamilyTree: React.FC<FamilyTreeProps> = ({ members, onMemberSelect, search
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [collapsedStates, setCollapsedStates] = useState<Record<string, boolean>>({});
+  const [flowViewportWidth, setFlowViewportWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1000);
+  const reactFlowWrapperRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    // Set initial width
+    if (reactFlowWrapperRef.current) {
+      setFlowViewportWidth(reactFlowWrapperRef.current.offsetWidth);
+    }
+
+    const resizeObserver = new ResizeObserver(entries => {
+      if (entries[0]) {
+        setFlowViewportWidth(entries[0].contentRect.width);
+      }
+    });
+
+    if (reactFlowWrapperRef.current) {
+      resizeObserver.observe(reactFlowWrapperRef.current);
+    }
+
+    return () => {
+      if (reactFlowWrapperRef.current) {
+        resizeObserver.unobserve(reactFlowWrapperRef.current); // eslint-disable-line react-hooks/exhaustive-deps
+      }
+    };
+  }, []); // Empty dependency array means this runs once on mount and cleans up on unmount
 
   const handleToggleCollapse = useCallback((memberId: string) => {
     setCollapsedStates(prev => ({
@@ -78,9 +103,10 @@ const FamilyTree: React.FC<FamilyTreeProps> = ({ members, onMemberSelect, search
       focusedMemberId,
       memoizedCallbacks,
       layoutConfig,
-      canEdit // Pass canEdit to layoutFamilyTree
+      canEdit, // Pass canEdit to layoutFamilyTree
+      flowViewportWidth // Pass current viewport width
     );
-  }, [members, searchQuery, collapsedStates, focusedMemberId, memoizedCallbacks, layoutConfig, canEdit]); // Add canEdit to dependency array
+  }, [members, searchQuery, collapsedStates, focusedMemberId, memoizedCallbacks, layoutConfig, canEdit, flowViewportWidth]); // Add flowViewportWidth
 
   // Update ReactFlow state when calculatedNodes or calculatedEdges change
   useEffect(() => {
@@ -89,7 +115,7 @@ const FamilyTree: React.FC<FamilyTreeProps> = ({ members, onMemberSelect, search
   }, [calculatedNodes, calculatedEdges, setNodes, setEdges]);
 
   return (
-    <div className="w-full h-screen relative">
+    <div className="w-full h-screen relative" ref={reactFlowWrapperRef}>
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -102,9 +128,13 @@ const FamilyTree: React.FC<FamilyTreeProps> = ({ members, onMemberSelect, search
         minZoom={0.1}
         maxZoom={1.5}
         style={{ background: 'linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 50%, #f7fee7 100%)' }}
+        onlyRenderVisibleElements={true}
+        nodesDraggable={false}
+        nodesConnectable={false}
+        elementsSelectable={true} // Or false, depending on desired interaction
       >
         <Controls position="top-right" />
-        <MiniMap 
+        <MiniMap
           position="bottom-right" 
           nodeColor={(n) => {
             // Node type for ReactFlow typically has data as an optional any.
