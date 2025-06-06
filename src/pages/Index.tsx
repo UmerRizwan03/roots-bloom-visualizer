@@ -1,7 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { TreePine, UserPlus, PanelRightOpen, PanelRightClose } from 'lucide-react'; 
+import { TreePine, UserPlus, PanelRightOpen, PanelRightClose, Menu } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import ThemeToggleButton from '../components/ThemeToggleButton';
 import Sidebar from '../components/Sidebar'; 
 import FamilyTree from '../components/FamilyTree';
@@ -257,6 +263,30 @@ const Index = () => {
               >
                 {isDrawerOpen ? <PanelRightClose className="h-5 w-5" /> : <PanelRightOpen className="h-5 w-5" />} 
               </Button>
+
+              {/* Mobile Navigation Menu */}
+              <div className="md:hidden ml-2">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="icon">
+                      <Menu className="h-5 w-5" />
+                      <span className="sr-only">Open navigation menu</span>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem asChild>
+                      <Link to="/" className="w-full">Home</Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link to="/members" className="w-full">Members</Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link to="/magazines" className="w-full">Magazines</Link>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+
               <ThemeToggleButton />
             </div>
           </div>
@@ -279,11 +309,11 @@ const Index = () => {
       </section>
       
       {/* Main Content Wrapper - Remains full width */}
-      <div className="flex-1 w-full pb-8">
+      <div className="flex-1 w-full pb-8 flex flex-col"> {/* Added flex flex-col */}
         
         {/* Family Tree Area - Main element with re-applied horizontal padding */}
-        <main className="flex-grow px-4 sm:px-6 lg:px-8"> {/* MODIFIED: Re-added px-4 sm:px-6 lg:px-8 */}
-          <section className="relative h-[650px]"> 
+        <main className="flex-grow px-4 sm:px-6 lg:px-8 flex flex-col"> {/* Added flex flex-col */}
+          <section className="relative min-h-[400px] flex-1">  {/* Changed h-[650px] to min-h-[400px] flex-1 */}
             <div className="absolute inset-0 bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm rounded-3xl shadow-2xl border border-slate-200/50 dark:border-slate-700/50 overflow-hidden">
               <div className="h-full w-full relative"> 
                 <div className="absolute inset-0 bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:from-slate-800 dark:via-slate-900 dark:to-black" />

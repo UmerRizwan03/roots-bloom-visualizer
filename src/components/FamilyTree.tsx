@@ -115,7 +115,7 @@ const FamilyTree: React.FC<FamilyTreeProps> = ({ members, onMemberSelect, search
   }, [calculatedNodes, calculatedEdges, setNodes, setEdges]);
 
   return (
-    <div className="w-full h-screen relative" ref={reactFlowWrapperRef}>
+    <div className="w-full h-full relative" ref={reactFlowWrapperRef}>
       <ReactFlow
         nodes={nodes}
         edges={edges}
