@@ -1,7 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { TreePine, UserPlus, PanelRightOpen, PanelRightClose } from 'lucide-react'; 
+import { TreePine, UserPlus, PanelRightOpen, PanelRightClose, Menu } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import ThemeToggleButton from '../components/ThemeToggleButton';
 import Sidebar from '../components/Sidebar'; 
 import FamilyTree from '../components/FamilyTree';
@@ -200,7 +206,7 @@ const Index = () => {
       <header className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm border-b border-emerald-100 dark:border-slate-700 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-3">
+            <div className="flex items-center space-x-3 flex-shrink-0"> {/* Added flex-shrink-0 */}
   <img
     src="/unityLogo.png" // Replace with your custom logo path
     alt="Custom Icon"
@@ -208,7 +214,7 @@ const Index = () => {
   />
   <h1 className="text-2xl font-bold text-emerald-800 dark:text-emerald-300">Unity Valiyangadi</h1>
 </div>
-            <div className="flex items-center">
+            <div className="flex items-center min-w-0"> {/* Added min-w-0 */}
               <nav className="hidden md:flex space-x-8 mr-4">
                 <Link to="/" className="text-emerald-600 dark:text-emerald-400 font-medium">Home</Link>
                 <Link to="/members" className="text-gray-600 dark:text-slate-300 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">Members</Link>
@@ -257,7 +263,31 @@ const Index = () => {
               >
                 {isDrawerOpen ? <PanelRightClose className="h-5 w-5" /> : <PanelRightOpen className="h-5 w-5" />} 
               </Button>
+
               <ThemeToggleButton />
+
+              {/* Mobile Navigation Menu (moved to be the last item) */}
+              <div className="md:hidden ml-2">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="icon">
+                      <Menu className="h-5 w-5" />
+                      <span className="sr-only">Open navigation menu</span>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem asChild>
+                      <Link to="/" className="w-full">Home</Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link to="/members" className="w-full">Members</Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link to="/magazines" className="w-full">Magazines</Link>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
             </div>
           </div>
         </div>
@@ -279,11 +309,11 @@ const Index = () => {
       </section>
       
       {/* Main Content Wrapper - Remains full width */}
-      <div className="flex-1 w-full pb-8">
+      <div className="flex-1 w-full pb-8 flex flex-col"> {/* Added flex flex-col */}
         
         {/* Family Tree Area - Main element with re-applied horizontal padding */}
-        <main className="flex-grow px-4 sm:px-6 lg:px-8"> {/* MODIFIED: Re-added px-4 sm:px-6 lg:px-8 */}
-          <section className="relative h-[650px]"> 
+        <main className="flex-grow px-4 sm:px-6 lg:px-8 flex flex-col"> {/* Added flex flex-col */}
+          <section className="relative min-h-[400px] flex-1">  {/* Changed h-[650px] to min-h-[400px] flex-1 */}
             <div className="absolute inset-0 bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm rounded-3xl shadow-2xl border border-slate-200/50 dark:border-slate-700/50 overflow-hidden">
               <div className="h-full w-full relative"> 
                 <div className="absolute inset-0 bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:from-slate-800 dark:via-slate-900 dark:to-black" />
