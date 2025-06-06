@@ -298,20 +298,18 @@ export function layoutFamilyTree(
 
   let centeredNodes = currentLayoutNodes; 
   if (currentLayoutNodes.length > 0) {
+      // nodeWidth is already available from the destructuring of 'config' at the function start
       const allXPositions = currentLayoutNodes.map(n => n.position.x);
       const minX = Math.min(...allXPositions);
-      const maxX = Math.max(...currentLayoutNodes.map(n => n.position.x + nodeWidth)); 
       
-      const rootNodes = currentLayoutNodes.filter(n => (n.data.member.generation || 1) === 1); 
-      let rootGenCenterX = 0;
-      if (rootNodes.length > 0) {
-          rootGenCenterX = rootNodes.reduce((acc, n) => acc + n.position.x, 0) / rootNodes.length;
-      } else if (currentLayoutNodes.length > 0) { 
-          rootGenCenterX = currentLayoutNodes.reduce((acc, n) => acc + n.position.x, 0) / currentLayoutNodes.length;
-      }
+      // Calculate maxX considering the width of the nodes
+      const maxNodeX = currentLayoutNodes.map(n => n.position.x + nodeWidth); // nodeWidth from config
+      const maxX = Math.max(...maxNodeX);
 
-      // const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 1000; // Replaced by parameter
-      const finalGlobalShiftX = (viewportWidth / 2) - (rootGenCenterX + nodeWidth / 2);
+      const treeActualWidth = maxX - minX;
+
+      // Calculate the shift needed to center the entire tree structure
+      const finalGlobalShiftX = (viewportWidth / 2) - (minX + treeActualWidth / 2);
 
       centeredNodes = currentLayoutNodes.map(node => ({
           ...node,
