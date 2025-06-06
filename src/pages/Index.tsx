@@ -28,6 +28,13 @@ import {
   // SheetTitle,  // Not used for now
 } from "@/components/ui/sheet";
 
+// Data for navigation links that will be used in mobile sidebar
+const mobileNavLinks = [
+  { to: "/", label: "Home" },
+  { to: "/members", label: "Members" },
+  { to: "/magazines", label: "Magazines" },
+];
+
 const Index = () => {
   const { user, loading: authLoading, signOut } = useAuth(); // Get auth state, including signOut
   const [selectedMember, setSelectedMember] = useState<FamilyMember | null>(null);
@@ -214,80 +221,66 @@ const Index = () => {
   />
   <h1 className="text-2xl font-bold text-emerald-800 dark:text-emerald-300">Unity Valiyangadi</h1>
 </div>
-            <div className="flex items-center min-w-0"> {/* Added min-w-0 */}
+            <div className="flex items-center min-w-0"> {/* Right side of header */}
+              {/* Desktop Navigation Links */}
               <nav className="hidden md:flex space-x-8 mr-4">
                 <Link to="/" className="text-emerald-600 dark:text-emerald-400 font-medium">Home</Link>
                 <Link to="/members" className="text-gray-600 dark:text-slate-300 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">Members</Link>
                 <Link to="/magazines" className="text-gray-600 dark:text-slate-300 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">Magazines</Link>
               </nav>
-              {!authLoading && user && ( // Check for authLoading and user
-                <Button 
-                  variant="outline" 
-                  className="mr-2"
-                  onClick={() => setIsAddMemberModalOpen(true)}
-                >
-                  <UserPlus className="mr-2 h-4 w-4" /> Add Member
-                </Button>
-              )}
 
-              {/* New Auth Navigation START */}
-              {authLoading ? (
-                <span className="text-sm text-gray-500 dark:text-gray-400 mr-2">Loading...</span>
-              ) : user ? (
-                <>
-                  <span className="text-sm text-gray-700 dark:text-gray-300 mr-3 hidden sm:inline">
-                    Hi, {user.email?.split('@')[0]}
-                  </span>
-                  <Button variant="outline" onClick={signOut} className="mr-2">
-                    Logout
+              {/* Auth Buttons Block - Desktop Only */}
+              <div className="hidden md:flex items-center">
+                {!authLoading && user && (
+                  <Button
+                    variant="outline"
+                    className="mr-2"
+                    onClick={() => setIsAddMemberModalOpen(true)}
+                  >
+                    <UserPlus className="mr-2 h-4 w-4" /> Add Member
                   </Button>
-                </>
-              ) : (
-                <>
-                  <Button variant="outline" onClick={() => setIsLoginModalOpen(true)} className="mr-2">
-                    Login
-                  </Button>
-                  <Button variant="default" onClick={() => setIsSignUpModalOpen(true)} className="mr-2">
-                    Sign Up
-                  </Button>
-                </>
-              )}
-              {/* New Auth Navigation END */}
+                )}
+                {authLoading ? (
+                  <span className="text-sm text-gray-500 dark:text-gray-400 mr-2">Loading...</span>
+                ) : user ? (
+                  <>
+                    <span className="text-sm text-gray-700 dark:text-gray-300 mr-3 hidden sm:inline">
+                      Hi, {user.email?.split('@')[0]}
+                    </span>
+                    <Button variant="outline" onClick={signOut} className="mr-2">
+                      Logout
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Button variant="outline" onClick={() => setIsLoginModalOpen(true)} className="mr-2">
+                      Login
+                    </Button>
+                    <Button variant="default" onClick={() => setIsSignUpModalOpen(true)} className="mr-2">
+                      Sign Up
+                    </Button>
+                  </>
+                )}
+              </div>
 
+              {/* Theme Toggle Button - Desktop Only */}
+              <div className="hidden md:block ml-2">
+                <ThemeToggleButton />
+              </div>
+
+              {/* Sidebar Toggle Button - Always Visible (becomes primary on mobile) */}
               <Button
                 variant="outline"
-                size="icon" 
-                onClick={toggleDrawer} 
-                aria-label={isDrawerOpen ? "Close search and filter panel" : "Open search and filter panel"}
-                className="ml-2" 
+                size="icon"
+                onClick={toggleDrawer}
+                aria-label={isDrawerOpen ? "Close sidebar" : "Open sidebar"}
+                className="ml-2" // This ml-2 will apply, ensuring space from logo on mobile if it's the only button
               >
-                {isDrawerOpen ? <PanelRightClose className="h-5 w-5" /> : <PanelRightOpen className="h-5 w-5" />} 
+                {isDrawerOpen ? <PanelRightClose className="h-5 w-5" /> : <PanelRightOpen className="h-5 w-5" />}
               </Button>
 
-              <ThemeToggleButton />
-
-              {/* Mobile Navigation Menu (moved to be the last item) */}
-              <div className="md:hidden ml-2">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="icon">
-                      <Menu className="h-5 w-5" />
-                      <span className="sr-only">Open navigation menu</span>
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem asChild>
-                      <Link to="/" className="w-full">Home</Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link to="/members" className="w-full">Members</Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link to="/magazines" className="w-full">Magazines</Link>
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
+              {/* The Mobile Dropdown Menu for Home/Members/Magazines has been REMOVED from here */}
+              {/* Its functionality will be in the sidebar */}
             </div>
           </div>
         </div>
@@ -333,14 +326,68 @@ const Index = () => {
         {/* Sheet for Sidebar content (renders as a portal, not directly in this flex layout) */}
         <Sheet open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
           <SheetContent side="right" className="w-full sm:w-[400px] p-0 overflow-y-auto">
-            <Sidebar 
-              members={members}
-              searchQuery={searchQuery}
-              onSearchQueryChange={handleSearchQueryChange}
-              onMemberSelect={(memberId) => { 
-                handleMemberSelectFromSheet(memberId); 
-              }}
-            />
+            {/* New layout for all sidebar content */}
+            <div className="flex flex-col h-full p-4 space-y-4 md:hidden"> {/* md:hidden as safeguard */}
+              {/* Mobile Navigation Links */}
+              <nav className="flex flex-col space-y-1">
+                {mobileNavLinks.map(link => (
+                  <Link
+                    key={link.to}
+                    to={link.to}
+                    className="text-lg py-2 px-3 hover:bg-accent rounded-md text-foreground font-medium"
+                    onClick={() => setIsDrawerOpen(false)} // Close drawer on link click
+                  >
+                    {link.label}
+                  </Link>
+                ))}
+              </nav>
+
+              <hr />
+
+              {/* Existing Member Search Sidebar functionality */}
+              <Sidebar
+                members={members}
+                searchQuery={searchQuery}
+                onSearchQueryChange={handleSearchQueryChange}
+                onMemberSelect={(memberId) => {
+                  handleMemberSelectFromSheet(memberId); // This already closes drawer
+                }}
+              />
+
+              {/* Spacer to push theme/auth to bottom */}
+              <div className="flex-grow" />
+
+              <hr />
+
+              {/* Theme Toggle and Auth Buttons Group */}
+              <div className="space-y-4">
+                <ThemeToggleButton />
+
+                {/* Auth Controls */}
+                <div className="flex flex-col space-y-2">
+                  {!authLoading && user && (
+                    <Button variant="outline" onClick={() => { setIsAddMemberModalOpen(true); setIsDrawerOpen(false); }}>
+                      <UserPlus className="mr-2 h-4 w-4" /> Add Member
+                    </Button>
+                  )}
+                  {authLoading ? (
+                    <span className="text-sm text-center text-muted-foreground py-2">Loading user...</span>
+                  ) : user ? (
+                    <>
+                      <div className="text-sm text-center text-muted-foreground py-1">
+                        Hi, {user.email?.split('@')[0]}
+                      </div>
+                      <Button variant="outline" onClick={() => { signOut(); setIsDrawerOpen(false); }}>Logout</Button>
+                    </>
+                  ) : (
+                    <>
+                      <Button variant="outline" onClick={() => { setIsLoginModalOpen(true); setIsDrawerOpen(false); }}>Login</Button>
+                      <Button variant="default" onClick={() => { setIsSignUpModalOpen(true); setIsDrawerOpen(false); }}>Sign Up</Button>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
           </SheetContent>
         </Sheet>
       </div>
