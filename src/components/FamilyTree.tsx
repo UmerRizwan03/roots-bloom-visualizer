@@ -37,7 +37,7 @@ const nodeTypes = {
 // Define layout configuration constants
 const layoutConfig: LayoutConfig = {
     generationSpacing: 400,
-    memberSpacing: 280,
+    memberSpacing: 150,
     nodeWidth: 208,
     siblingSpacing: 70,
     // minParentPadding: 20, // Ensure these match what layoutFamilyTree expects if used

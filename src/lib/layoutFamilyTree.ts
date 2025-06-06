@@ -201,53 +201,79 @@ export function layoutFamilyTree(
 
 
     } else { // For g > 1
+      // Group nodes by their parent set for structured layout
+      const nodesByParentKeyInCurrentGen = new Map<string, Node[]>();
       nodesInCurrentGen.forEach(node => {
         const member = node.data.member as FamilyMember;
-        let calculatedX = 0;
-        if (member.parents && member.parents.length > 0) {
-          const parentXCoords = member.parents
+        const parentKey = member.parents && member.parents.length > 0
+                          ? member.parents.sort().join('-')
+                          : `no-parents-${member.id}`; // Unique key for nodes without parents or distinct roots
+        if (!nodesByParentKeyInCurrentGen.has(parentKey)) {
+          nodesByParentKeyInCurrentGen.set(parentKey, []);
+        }
+        nodesByParentKeyInCurrentGen.get(parentKey)!.push(node);
+      });
+
+      let currentXForGeneration = 0;
+      // Sort parent keys for deterministic layout order
+      const sortedParentKeys = Array.from(nodesByParentKeyInCurrentGen.keys()).sort();
+
+      sortedParentKeys.forEach(parentKey => {
+        const siblingGroup = nodesByParentKeyInCurrentGen.get(parentKey)!;
+
+        // Calculate the average X position of the parents of this siblingGroup
+        let avgParentX = 0;
+        if (siblingGroup.length > 0 && siblingGroup[0].data.member.parents && siblingGroup[0].data.member.parents.length > 0) {
+          const parentXCoords = siblingGroup[0].data.member.parents
             .map(parentId => nodeXPositionsGlobal.get(parentId))
             .filter(x => x !== undefined) as number[];
           if (parentXCoords.length > 0) {
-            calculatedX = parentXCoords.reduce((sum, xVal) => sum + xVal, 0) / parentXCoords.length;
+            avgParentX = parentXCoords.reduce((sum, xVal) => sum + xVal, 0) / parentXCoords.length;
+          } else {
+            // Fallback if parents are not in nodeXPositionsGlobal (e.g., not displayed)
+            // This group will effectively start at currentXForGeneration
+            avgParentX = currentXForGeneration;
           }
+        } else {
+           // No parents (e.g. a new root appearing in a later generation, though unusual for family trees)
+           avgParentX = currentXForGeneration;
         }
-        node.position.x = calculatedX; // Initial position based on parents
-        // nodeXPositionsGlobal.set(node.id, calculatedX); // Set early for sorting below? No, after adjustments.
+        
+        const groupWidth = (siblingGroup.length * nodeWidth) + ((siblingGroup.length - 1) * siblingSpacing);
+
+        // Determine the starting X for this group. It's centered under avgParentX,
+        // but must not be less than currentXForGeneration to avoid overlap.
+        let groupStartX = avgParentX - (groupWidth / 2) + (nodeWidth / 2); // target start for first node's center
+        groupStartX = Math.max(groupStartX, currentXForGeneration);
+
+        // Position siblings within their group
+        let currentXInGroup = groupStartX;
+        siblingGroup.forEach(node => {
+          // node.position.x = currentXInGroup; // This would be for left edge
+          node.position.x = currentXInGroup; // Centering each node
+          nodeXPositionsGlobal.set(node.id, node.position.x);
+          currentXInGroup += nodeWidth + siblingSpacing;
+        });
+
+        // Update currentXForGeneration for the next group
+        // The width of the current group is (currentXInGroup - groupStartX - siblingSpacing)
+        // The rightmost point of the last node is groupStartX + (siblingGroup.length-1)*(nodeWidth+siblingSpacing)
+        // No, it's simpler: the last node's X is node.position.x. Its width is nodeWidth.
+        // So, the space taken is from groupStartX (center of first node) to last node's center + nodeWidth/2
+        // Correct: currentXForGeneration should be the X for the *start* of the next group.
+        // currentXInGroup is already (nodeWidth + siblingSpacing) *beyond* the last node's start.
+        // So currentXForGeneration = currentXInGroup - siblingSpacing + memberSpacing
+        if (siblingGroup.length > 0) {
+             const lastNode = siblingGroup[siblingGroup.length-1];
+             currentXForGeneration = lastNode.position.x + (nodeWidth / 2) + memberSpacing;
+        } else {
+             currentXForGeneration += memberSpacing; // Should not happen if key exists
+        }
+
       });
     }
-
-    // Sibling group adjustment (applies to all generations, including G1 after initial placement)
-    const childrenByParentKeyInCurrentGen = new Map<string, Node[]>();
-    nodesInCurrentGen.forEach(node => {
-      const member = node.data.member as FamilyMember;
-      // Use a consistent parent key for siblings (e.g., sorted list of parent IDs)
-      const parentKey = member.parents && member.parents.length > 0 ? member.parents.sort().join('-') : `no-parents-${node.id}`; // Ensure unique key for root nodes or those without parents in set
-      if (!childrenByParentKeyInCurrentGen.has(parentKey)) {
-        childrenByParentKeyInCurrentGen.set(parentKey, []);
-      }
-      childrenByParentKeyInCurrentGen.get(parentKey)!.push(node);
-    });
-
-    childrenByParentKeyInCurrentGen.forEach(siblingGroup => {
-      if (siblingGroup.length > 1) {
-        // Sort by initial X position to maintain relative order before spreading
-        siblingGroup.sort((a, b) => a.position.x - b.position.x);
-        
-        const groupParentX = siblingGroup.reduce((sum, node) => sum + node.position.x, 0) / siblingGroup.length;
-        const totalSiblingWidth = (siblingGroup.length * nodeWidth) + ((siblingGroup.length - 1) * siblingSpacing);
-        let startX = groupParentX - totalSiblingWidth / 2;
-
-        siblingGroup.forEach((node, index) => {
-          node.position.x = startX + (index * (nodeWidth + siblingSpacing)) + nodeWidth / 2; // Center of node
-        });
-      }
-    });
-    
-    // Update global X positions after all adjustments for the current generation
-    nodesInCurrentGen.forEach(node => {
-      nodeXPositionsGlobal.set(node.id, node.position.x);
-    });
+    // Global X positions are updated within the loops now.
+    // The old generic global update loop is removed as nodeXPositionsGlobal is set more precisely.
   }
   
   const familyEdges: Edge[] = [];
