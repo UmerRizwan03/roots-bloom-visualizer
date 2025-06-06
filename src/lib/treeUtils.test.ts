@@ -1,3 +1,4 @@
+import { describe, it, expect } from 'vitest'; // Added describe, it, expect
 import { getDescendants } from './treeUtils';
 import { FamilyMember } from '../types/family';
 
@@ -46,6 +47,11 @@ describe('getDescendants', () => {
 
   it('should return an empty array if root member not found', () => {
     const result = getDescendants('nonexistent', mockMembers, 1);
+    expect(result).toEqual([]);
+  });
+
+  it('should return an empty array if allMembers is empty', () => {
+    const result = getDescendants('1', [], 1);
     expect(result).toEqual([]);
   });
 

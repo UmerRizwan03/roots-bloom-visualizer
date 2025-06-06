@@ -1,59 +1,69 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { supabase } from '../lib/supabaseClient'; 
+import React, { useState, useCallback, useEffect } from 'react'; // Added useEffect
+import { supabase } from '../lib/supabaseClient';
 import { FamilyMember } from '../types/family';
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
-import { User, Calendar, MapPin, Briefcase, Heart, Droplets, Phone, Mail, Search, X } from 'lucide-react';
+import { toast } from 'sonner'; // Added toast import for sonner
+import { useQuery } from '@tanstack/react-query';
+import { calculateAge } from '../lib/utils'; // Import calculateAge
+// Card components and some icons are no longer directly used here
+import { Search, X } from 'lucide-react'; // Keep Search and X
 import { Link } from 'react-router-dom';
 import ThemeToggleButton from '../components/ThemeToggleButton';
+import MemberCard from '../components/MemberCard'; // Import MemberCard
 
 const Members = () => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [members, setMembers] = useState<FamilyMember[]>([]); 
-  const [isLoading, setIsLoading] = useState<boolean>(true); 
-  const [fetchError, setFetchError] = useState<string | null>(null); 
 
-  const fetchPageMembers = useCallback(async () => {
-    setIsLoading(true);
-    setFetchError(null);
+  const fetchMembers = async (): Promise<FamilyMember[]> => {
     const { data, error } = await supabase
       .from('family_members')
-      .select('*'); 
+      .select('*');
 
     if (error) {
       console.error('Error fetching members for Members page:', error);
-      setFetchError(error.message);
-      setMembers([]);
-    } else {
-      setMembers(data as FamilyMember[]);
+      throw new Error(error.message);
     }
-    setIsLoading(false);
-  }, []);
+    return data as FamilyMember[];
+  };
+
+  const {
+    data: members = [],
+    isLoading,
+    isError,
+    error
+  } = useQuery<FamilyMember[], Error>({
+    queryKey: ['members'],
+    queryFn: fetchMembers,
+    // react-query default staleTime is 0, so it refetches on window focus, etc.
+    // Adding a specific retry or refetch button could be done via queryClient.refetch or the refetch function from useQuery
+  });
 
   useEffect(() => {
-    fetchPageMembers();
-  }, [fetchPageMembers]);
+    if (isError && error) {
+      // Ensure error is an instance of Error to access message property safely
+      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred.';
+      toast.error(`Failed to load members: ${errorMessage}`, {
+        duration: 5000, // Show toast for 5 seconds
+        // description: "You might want to try refreshing the page.", // Optional description
+      });
+    }
+  }, [isError, error]);
 
-  const getPartnerDetails = (member: FamilyMember) => {
+  const getPartnerDetails = useCallback((member: FamilyMember) => {
     const partners: FamilyMember[] = [];
+    // members is initialized to [] by useQuery, so it should always be an array.
+    // No need for !members check if using default value in useQuery's destructuring.
     if (member.spouse) {
-      const spouse = members.find(m => m.id === member.spouse); 
+      const spouse = members.find(m => m.id === member.spouse);
       if (spouse) partners.push(spouse);
     }
     if (member.partners) {
       member.partners.forEach(partnerId => {
-        const partner = members.find(m => m.id === partnerId); 
+        const partner = members.find(m => m.id === partnerId);
         if (partner) partners.push(partner);
       });
     }
     return partners;
-  };
-
-  const calculateAge = (birthDate?: string, deathDate?: string) => {
-    if (!birthDate) return null;
-    const birth = new Date(birthDate);
-    const end = deathDate ? new Date(deathDate) : new Date();
-    return end.getFullYear() - birth.getFullYear();
-  };
+  }, [members]); // Add members as a dependency for useCallback
 
   const filteredMembers = members.filter(member => 
     member.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -73,13 +83,23 @@ const Members = () => {
     );
   }
 
-  if (fetchError) {
+  if (isError) { // Removed 'error' from condition as useEffect handles the specific error message
     return (
-      <div className="flex flex-col justify-center items-center min-h-screen bg-gradient-to-br from-red-50 via-white to-pink-50 dark:from-slate-900 dark:via-slate-800 dark:to-gray-900 text-red-700 dark:text-red-400 p-4">
-        <h2 className="text-2xl font-semibold mb-4">Error Fetching Data</h2>
-        <p className="mb-2">There was an issue retrieving the family members list:</p>
-        <p className="bg-red-100 dark:bg-red-900/30 p-2 rounded border border-red-300 dark:border-red-700">{fetchError}</p>
-        <Button onClick={fetchPageMembers} className="mt-6">Try Again</Button>
+      <div className="flex flex-col justify-center items-center min-h-screen bg-gradient-to-br from-red-50 via-white to-pink-50 dark:from-slate-900 dark:via-slate-800 dark:to-gray-900 text-red-700 dark:text-red-400 p-4 text-center">
+        <h2 className="text-2xl font-semibold mb-4">Failed to Load Family Members</h2>
+        <p className="mb-2">
+          We encountered an issue trying to retrieve the family members list.
+          Please try refreshing the page or check your internet connection.
+        </p>
+        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+          If the problem persists, please try again later.
+        </p>
+        {/* Displaying specific error details can be done here for developers if needed, or rely on toast/console */}
+        {process.env.NODE_ENV === 'development' && error && (
+          <p className="mt-3 bg-red-100 dark:bg-red-900/30 p-2 rounded border border-red-300 dark:border-red-700 text-xs">
+            <strong>Developer Info:</strong> {error instanceof Error ? error.message : String(error)}
+          </p>
+        )}
       </div>
     );
   }
@@ -146,6 +166,7 @@ const Members = () => {
         </div>
 
         {/* Conditional rendering for "No members in database" */}
+        {/* members is initialized to [], so members.length can be checked directly */}
         {!searchQuery && !isLoading && members.length === 0 && (
           <div className="text-center py-12">
             <p className="text-gray-500 dark:text-slate-400 text-lg">No members found in the database.</p>
@@ -154,6 +175,7 @@ const Members = () => {
         )}
 
         {/* Only render grid if there are members */}
+        {/* members is initialized to [], so members.length can be checked directly */}
         {members.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {filteredMembers.map((member) => {
@@ -161,137 +183,19 @@ const Members = () => {
               const age = calculateAge(member.birthDate, member.deathDate);
 
               return (
-                <Card key={member.id} className="overflow-hidden hover:shadow-xl transition-shadow duration-300 dark:bg-slate-800">
-                  <CardHeader className={`pb-4 ${member.gender === 'male' ? 'bg-gradient-to-r from-blue-500 to-indigo-600' : 'bg-gradient-to-r from-rose-500 to-pink-600'} text-white`}>
-                    <div className="flex items-center space-x-4">
-                      <div className="w-16 h-16 bg-white/20 dark:bg-slate-700/30 rounded-full flex items-center justify-center">
-                        {member.photo ? (
-                          <img 
-                            src={member.photo} 
-                            alt={member.name}
-                            className="w-full h-full object-cover rounded-full"
-                          />
-                        ) : (
-                          <User className="w-8 h-8 text-white" />
-                        )}
-                      </div>
-                      <div>
-                        <CardTitle className="text-xl font-bold text-white">{member.name}</CardTitle>
-                        <p className="text-white/80 text-sm">Generation {member.generation}</p>
-                      </div>
-                    </div>
-                  </CardHeader>
-
-                  <CardContent className="p-6 space-y-4 dark:text-slate-300">
-                    <div className="space-y-3">
-                      {member.birthDate && (
-                        <div className="flex items-center text-sm text-gray-600 dark:text-slate-300">
-                          <Calendar className="w-4 h-4 mr-2 text-gray-400 dark:text-slate-500" />
-                          <span>
-                            Born: {new Date(member.birthDate).toLocaleDateString()}
-                            {age && ` (${age} years old)`}
-                          </span>
-                        </div>
-                      )}
-
-                      {member.deathDate && (
-                        <div className="flex items-center text-sm text-gray-600 dark:text-slate-300">
-                          <Calendar className="w-4 h-4 mr-2 text-gray-400 dark:text-slate-500" />
-                          <span>Died: {new Date(member.deathDate).toLocaleDateString()}</span>
-                        </div>
-                      )}
-
-                      {member.birthPlace && (
-                        <div className="flex items-center text-sm text-gray-600 dark:text-slate-300">
-                          <MapPin className="w-4 h-4 mr-2 text-gray-400 dark:text-slate-500" />
-                          <span>{member.birthPlace}</span>
-                        </div>
-                      )}
-
-                      {member.occupation && (
-                        <div className="flex items-center text-sm text-gray-600 dark:text-slate-300">
-                          <Briefcase className="w-4 h-4 mr-2 text-gray-400 dark:text-slate-500" />
-                          <span>{member.occupation}</span>
-                        </div>
-                      )}
-
-                      {member.bloodType && (
-                        <div className="flex items-center text-sm text-gray-600 dark:text-slate-300">
-                          <Droplets className="w-4 h-4 mr-2 text-gray-400 dark:text-slate-500" />
-                          <span>Blood Type: {member.bloodType}</span>
-                        </div>
-                      )}
-
-                      {member.mobileNumber && (
-                        <div className="flex items-center text-sm text-gray-600 dark:text-slate-300">
-                          <Phone className="w-4 h-4 mr-2 text-gray-400 dark:text-slate-500" />
-                          <span>{member.mobileNumber}</span>
-                        </div>
-                      )}
-
-                      {member.email && (
-                        <div className="flex items-center text-sm text-gray-600 dark:text-slate-300">
-                          <Mail className="w-4 h-4 mr-2 text-gray-400 dark:text-slate-500" />
-                          <span>{member.email}</span>
-                        </div>
-                      )}
-                    </div>
-
-                    {partners.length > 0 && (
-                      <div className="border-t dark:border-slate-700 pt-4">
-                        <div className="flex items-center mb-3">
-                          <Heart className="w-4 h-4 mr-2 text-red-500" />
-                          <span className="font-semibold text-gray-800 dark:text-slate-200">
-                            {partners.length === 1 ? 'Partner' : 'Partners'}
-                          </span>
-                        </div>
-                        {partners.map((partner) => (
-                          <div key={partner.id} className="bg-gray-50 dark:bg-slate-700/50 rounded-lg p-3 mb-2 last:mb-0">
-                            <div className="font-medium text-gray-800 dark:text-slate-200">{partner.name}</div>
-                            <div className="text-sm text-gray-600 dark:text-slate-300 space-y-1">
-                              {partner.occupation && (
-                                <div className="flex items-center">
-                                  <Briefcase className="w-3 h-3 mr-1 text-gray-400 dark:text-slate-500" />
-                                  <span>{partner.occupation}</span>
-                                </div>
-                              )}
-                              {partner.bloodType && (
-                                <div className="flex items-center">
-                                  <Droplets className="w-3 h-3 mr-1 text-gray-400 dark:text-slate-500" />
-                                  <span>Blood Type: {partner.bloodType}</span>
-                                </div>
-                              )}
-                              {partner.mobileNumber && (
-                                <div className="flex items-center">
-                                  <Phone className="w-3 h-3 mr-1 text-gray-400 dark:text-slate-500" />
-                                  <span>{partner.mobileNumber}</span>
-                                </div>
-                              )}
-                              {partner.email && (
-                                <div className="flex items-center">
-                                  <Mail className="w-3 h-3 mr-1 text-gray-400 dark:text-slate-500" />
-                                  <span>{partner.email}</span>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    {member.bio && (
-                      <div className="border-t dark:border-slate-700 pt-4">
-                        <p className="text-sm text-gray-600 dark:text-slate-300 leading-relaxed">{member.bio}</p>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
+                <MemberCard
+                  key={member.id}
+                  member={member}
+                  partners={partners}
+                  age={age}
+                />
               );
             })}
           </div>
         )}
         
         {/* This handles "no results for search query" when members *are* present */}
+        {/* members is initialized to [], so members.length can be checked directly */}
         {members.length > 0 && filteredMembers.length === 0 && searchQuery && (
           <div className="text-center py-12">
             <p className="text-gray-500 dark:text-slate-400 text-lg">No family members found matching "{searchQuery}"</p>

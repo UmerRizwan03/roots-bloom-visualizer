@@ -45,7 +45,7 @@ const EditMemberForm: React.FC<EditMemberFormProps> = ({ member, onSave, onCance
     // Helper to delete from storage - ensure this matches your actual storage structure
     const deletePhotoFromStorage = async (photoUrlToDelete: string) => {
       if (!photoUrlToDelete) {
-        console.log("deletePhotoFromStorage: No photo URL provided, skipping deletion from storage.");
+        // console.log("deletePhotoFromStorage: No photo URL provided, skipping deletion from storage."); // Debug log, commented out
         return;
       }
       try {
@@ -65,7 +65,7 @@ const EditMemberForm: React.FC<EditMemberFormProps> = ({ member, onSave, onCance
         const filePathInBucket = urlSegments.slice(bucketNameIndex + 1).join('/');
         
         if (filePathInBucket) {
-          console.log(`deletePhotoFromStorage: Attempting to delete '${filePathInBucket}' from bucket '${storageBucketName}'.`);
+          // console.log(`deletePhotoFromStorage: Attempting to delete '${filePathInBucket}' from bucket '${storageBucketName}'.`); // Debug log, commented out
           const { error: deleteError } = await supabase.storage
             .from(storageBucketName)
             .remove([filePathInBucket]);
@@ -73,7 +73,7 @@ const EditMemberForm: React.FC<EditMemberFormProps> = ({ member, onSave, onCance
           if (deleteError) {
             console.warn(`deletePhotoFromStorage: Error deleting photo '${filePathInBucket}' from storage: ${deleteError.message}`, deleteError);
           } else {
-            console.log(`deletePhotoFromStorage: Successfully deleted photo '${filePathInBucket}' from storage.`);
+            // console.log(`deletePhotoFromStorage: Successfully deleted photo '${filePathInBucket}' from storage.`); // Success Debug log, commented out
           }
         } else {
           console.warn(`deletePhotoFromStorage: Extracted empty file path from URL '${photoUrlToDelete}'. Cannot delete.`);
