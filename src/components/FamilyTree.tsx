@@ -11,14 +11,14 @@ import {
   Background,
   BackgroundVariant,
   MiniMap,
-  Position,
+  // Position, // Unused import
   // MarkerType, // No longer directly used here
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { FamilyMember } from '../types/family';
 import FamilyMemberNode from './FamilyMemberNode';
-// Removed local getDescendants, it's now used by layoutFamilyTree from treeUtils
 import { layoutFamilyTree, LayoutCallbacks, LayoutConfig } from '../lib/layoutFamilyTree';
+import ErrorBoundary from './ErrorBoundary'; // Import ErrorBoundary
 
 interface FamilyTreeProps {
   members: FamilyMember[];
@@ -40,8 +40,6 @@ const layoutConfig: LayoutConfig = {
     memberSpacing: 280,
     nodeWidth: 208,
     siblingSpacing: 30,
-    // minParentPadding: 20, // Ensure these match what layoutFamilyTree expects if used
-    // minFamilyBlockSpacing: 50, // Or remove if not used in the moved logic
 };
 
 const FamilyTree: React.FC<FamilyTreeProps> = ({ members, onMemberSelect, searchQuery, onSetEditingMember, onDeleteMember, focusedMemberId, canEdit }) => {
@@ -90,9 +88,10 @@ const FamilyTree: React.FC<FamilyTreeProps> = ({ members, onMemberSelect, search
 
   return (
     <div className="w-full h-screen relative">
-      <ReactFlow
-        nodes={nodes}
-        edges={edges}
+      <ErrorBoundary fallbackMessage="The family tree could not be displayed. Please try refreshing the page.">
+        <ReactFlow
+          nodes={nodes}
+          edges={edges}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
@@ -118,8 +117,9 @@ const FamilyTree: React.FC<FamilyTreeProps> = ({ members, onMemberSelect, search
           pannable 
           zoomable 
         />
-        <Background variant={BackgroundVariant.Dots} gap={40} size={2} color="#a7f3d0" style={{ opacity: 0.3 }} />
-      </ReactFlow>
+          <Background variant={BackgroundVariant.Dots} gap={40} size={2} color="#a7f3d0" style={{ opacity: 0.3 }} />
+        </ReactFlow>
+      </ErrorBoundary>
     </div>
   );
 };
