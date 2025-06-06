@@ -260,11 +260,10 @@ export function layoutFamilyTree(
                       id: `edge-${parentId}-to-${member.id}`,
                       source: parentId,
                       target: member.id,
-                      type: 'smoothstep', 
+                      type: 'default',
                       animated: true,
-                      markerEnd: { type: MarkerType.ArrowClosed, color: '#059669', width: 22, height: 22 },
-                      style: { stroke: '#059669', strokeWidth: 3, strokeLinecap: 'round', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))'},
-                      pathOptions: { borderRadius: 30 }, 
+                      markerEnd: { type: MarkerType.ArrowClosed, color: '#60a5fa', width: 18, height: 18 },
+                      style: { stroke: '#60a5fa', strokeWidth: 2, strokeLinecap: 'round', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))'},
                   });
               }
           });
