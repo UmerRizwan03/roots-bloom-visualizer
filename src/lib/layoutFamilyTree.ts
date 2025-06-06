@@ -140,6 +140,7 @@ export function layoutFamilyTree(
 
   const maxGeneration = Math.max(0, ...displayedMembers.map(m => (m.generation || 1)));
   const nodeXPositionsGlobal = new Map<string, number>();
+  let gen1CenterX = viewportWidth / 2; // Default, will be updated after Gen 1 is laid out
 
   // Group nodes by generation for efficient access
   const nodesByGeneration = new Map<number, Node[]>();
@@ -191,82 +192,106 @@ export function layoutFamilyTree(
 
       nodesInCurrentGen.forEach(node => {
         if (!processedGen1NodeIds.has(node.id)) {
-          node.position.x = currentX;
+          node.position.x = currentX; // currentX is a left edge
           processedGen1NodeIds.add(node.id);
-          nodeXPositionsGlobal.set(node.id, currentX); // Update global X
+          // nodeXPositionsGlobal.set(node.id, currentX + nodeWidth / 2); // Store center
           currentX += nodeWidth + memberSpacing;
         }
       });
-      // Removed specific Gen 1 centering logic (gen1Width, gen1ShiftX)
 
-    } else { // For g > 1
-      // Initial placement based on parent average
-      nodesInCurrentGen.forEach(node => {
-        const member = node.data.member as FamilyMember;
-        let calculatedX = 0;
-        if (member.parents && member.parents.length > 0) {
-          const parentXCoords = member.parents
-            .map(parentId => nodeXPositionsGlobal.get(parentId))
-            .filter(x => x !== undefined) as number[];
-          if (parentXCoords.length > 0) {
-            calculatedX = parentXCoords.reduce((sum, xVal) => sum + xVal, 0) / parentXCoords.length;
-          }
+      // Explicit Gen 1 Centering
+      if (gen1NodesOnly.length > 0) {
+        // At this point, node.position.x is the left edge from the sequential layout
+        const gen1XLeftEdges = gen1NodesOnly.map(n => n.position.x);
+        const minX_gen1_left = Math.min(...gen1XLeftEdges);
+        const maxR_gen1_right = gen1NodesOnly.map(n => n.position.x + nodeWidth);
+        const maxX_gen1_right = Math.max(...maxR_gen1_right);
+        const gen1ActualWidth = maxX_gen1_right - minX_gen1_left;
+
+        const gen1ShiftX = (viewportWidth / 2) - (minX_gen1_left + gen1ActualWidth / 2);
+
+        gen1NodesOnly.forEach(node => {
+          node.position.x += gen1ShiftX; // Shift left edge
+          nodeXPositionsGlobal.set(node.id, node.position.x + nodeWidth / 2); // Store CENTER for future avgParentX
+        });
+
+        const finalGen1XCenters = gen1NodesOnly.map(n => nodeXPositionsGlobal.get(n.id)!);
+        if (finalGen1XCenters.length > 0) {
+            // gen1CenterX should be the center of the entire block of Gen 1 nodes
+            const minActualLeftEdge = Math.min(...gen1NodesOnly.map(n => n.position.x));
+            const maxActualRightEdge = Math.max(...gen1NodesOnly.map(n => n.position.x + nodeWidth));
+            gen1CenterX = minActualLeftEdge + (maxActualRightEdge - minActualLeftEdge) / 2;
         }
-        node.position.x = calculatedX;
-        // nodeXPositionsGlobal is NOT set here yet; sibling adjustments follow
-      });
+      }
 
-      // Sibling adjustment
-      const childrenByParentKeyInCurrentGen = new Map<string, Node[]>();
+    } else { // For g > 1 (Hierarchical Layout)
+      const nodesByParentKeyInCurrentGen = new Map<string, Node[]>();
       nodesInCurrentGen.forEach(node => {
         const member = node.data.member as FamilyMember;
         const parentKey = member.parents && member.parents.length > 0
                           ? member.parents.sort().join('-')
-                          : `no-parents-${node.id}`; // Unique key for nodes without parents
-        if (!childrenByParentKeyInCurrentGen.has(parentKey)) {
-          childrenByParentKeyInCurrentGen.set(parentKey, []);
+                          : `no-parents-${member.id}`;
+        if (!nodesByParentKeyInCurrentGen.has(parentKey)) {
+          nodesByParentKeyInCurrentGen.set(parentKey, []);
         }
-        childrenByParentKeyInCurrentGen.get(parentKey)!.push(node);
+        nodesByParentKeyInCurrentGen.get(parentKey)!.push(node);
       });
 
-      childrenByParentKeyInCurrentGen.forEach(siblingGroup => {
-        if (siblingGroup.length > 1) {
-          siblingGroup.sort((a, b) => a.position.x - b.position.x);
+      const sortedParentKeys = Array.from(nodesByParentKeyInCurrentGen.keys()).sort();
+      const parentGroupDetails: { parentKey: string; siblingGroup: Node[]; groupWidth: number; avgParentX: number }[] = [];
+      let totalWidthOfCurrentGeneration = 0;
 
-          const groupParentX = siblingGroup.reduce((sum, node) => sum + node.position.x, 0) / siblingGroup.length;
-          const totalSiblingWidth = (siblingGroup.length * nodeWidth) + ((siblingGroup.length - 1) * siblingSpacing);
-          let startX = groupParentX - totalSiblingWidth / 2; // This is the start for the first node's left edge
+      for (const parentKey of sortedParentKeys) {
+        const siblingGroup = nodesByParentKeyInCurrentGen.get(parentKey)!;
+        const groupWidth = (siblingGroup.length * nodeWidth) + ((siblingGroup.length - 1) * siblingSpacing);
+        totalWidthOfCurrentGeneration += groupWidth;
 
-          siblingGroup.forEach(node => {
-            node.position.x = startX; // Set position as left edge
-            startX += nodeWidth + siblingSpacing;
-          });
+        let avgParentX = gen1CenterX; // Default to Gen1 center
+        if (siblingGroup.length > 0 && siblingGroup[0].data.member.parents && siblingGroup[0].data.member.parents.length > 0) {
+          const parentXCoords = siblingGroup[0].data.member.parents
+            .map(parentId => nodeXPositionsGlobal.get(parentId)) // These are centers
+            .filter(x => x !== undefined) as number[];
+          if (parentXCoords.length > 0) {
+            avgParentX = parentXCoords.reduce((sum, xVal) => sum + xVal, 0) / parentXCoords.length;
+          }
         }
-      });
+        parentGroupDetails.push({ parentKey, siblingGroup, groupWidth, avgParentX });
+      }
+      if (parentGroupDetails.length > 0) {
+        totalWidthOfCurrentGeneration += (parentGroupDetails.length - 1) * memberSpacing;
+      }
 
-      // Update global X positions after all adjustments for the current generation
-      nodesInCurrentGen.forEach(node => {
-        nodeXPositionsGlobal.set(node.id, node.position.x);
+      let collectiveParentCenterX = gen1CenterX;
+      if (parentGroupDetails.length > 0) {
+        const weightedSum = parentGroupDetails.reduce((sum, detail) => sum + detail.avgParentX * detail.siblingGroup.length, 0);
+        const totalNodesInGen = parentGroupDetails.reduce((sum, detail) => sum + detail.siblingGroup.length, 0);
+        if (totalNodesInGen > 0) {
+          collectiveParentCenterX = weightedSum / totalNodesInGen;
+        }
+      }
+
+      const startXForCurrentGenerationBlock = collectiveParentCenterX - (totalWidthOfCurrentGeneration / 2); // Left edge of the generation block
+      let currentGroupX = startXForCurrentGenerationBlock;
+
+      parentGroupDetails.forEach(({ siblingGroup, groupWidth, avgParentX }) => {
+        // avgParentX is the target center for this specific siblingGroup.
+        // However, the group must be placed sequentially starting at currentGroupX.
+        // For this version, we place the group sequentially, and then arrange siblings within that slot.
+        // A more advanced version might try to align the group's center (avgParentX) IF it doesn't break sequence.
+
+        let relativeXWithinGroup = 0;
+        const firstSiblingActualLeftEdge = currentGroupX;
+
+        siblingGroup.forEach((node) => {
+          node.position.x = firstSiblingActualLeftEdge + relativeXWithinGroup + (nodeWidth / 2); // Set node's center
+          nodeXPositionsGlobal.set(node.id, node.position.x); // Store center
+          relativeXWithinGroup += nodeWidth + siblingSpacing;
+        });
+        currentGroupX += groupWidth + memberSpacing;
       });
     }
   }
   
-  // --- Final Global Centering ---
-  if (currentLayoutNodes.length > 0) {
-    // nodeWidth is from config
-    const xCoordinates = currentLayoutNodes.map(node => node.position.x);
-    const minX = Math.min(...xCoordinates);
-    const maxNodeRightEdges = currentLayoutNodes.map(node => node.position.x + nodeWidth);
-    const maxX = Math.max(...maxNodeRightEdges);
-    const treeWidth = maxX - minX;
-    const shiftX = (viewportWidth / 2) - (minX + treeWidth / 2);
-
-    currentLayoutNodes.forEach(node => {
-        node.position.x += shiftX;
-    });
-  }
-  // --- End Final Global Centering ---
-
   const familyEdges: Edge[] = [];
   const displayedMemberIds = new Set(displayedMembers.map(m => m.id)); 
   displayedMembers.forEach(member => {
@@ -277,10 +302,10 @@ export function layoutFamilyTree(
                       id: `edge-${parentId}-to-${member.id}`,
                       source: parentId,
                       target: member.id,
-                      type: 'default',
+                      type: 'smoothstep',
                       animated: true,
-                      markerEnd: { type: MarkerType.ArrowClosed, color: '#60a5fa', width: 18, height: 18 },
-                      style: { stroke: '#60a5fa', strokeWidth: 2, strokeLinecap: 'round', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))'},
+                      markerEnd: { type: MarkerType.ArrowClosed, color: '#60a5fa', width: 20, height: 20 },
+                      style: { stroke: '#60a5fa', strokeWidth: 2.5, filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))'},
                   });
               }
           });
