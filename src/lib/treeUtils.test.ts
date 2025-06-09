@@ -1,8 +1,8 @@
-import { getDescendants } from './treeUtils';
+import { getDescendants, getAncestors } from './treeUtils'; // Added getAncestors
 import { FamilyMember } from '../types/family';
 
 // Mock family data for tests
-// The getDescendants function relies on the `parents` field of children to find them.
+// The getDescendants and getAncestors functions rely on the `parents` field.
 const mockMembers: FamilyMember[] = [
   // Gen 1
   { id: '1', name: 'Great Grandparent', generation: 1, gender: 'male' },
@@ -109,4 +109,110 @@ describe('getDescendants', () => {
     expect(result.find(m => m.id === '4')?.generation).toBe(1);
     expect(result.find(m => m.id === '7')?.generation).toBe(2);
   });
+});
+
+describe('getAncestors', () => {
+  it('should return the member and all direct ancestors with adjusted generations', () => {
+    // Child1 (id '7') -> Parent1 (id '4') -> Grandparent1 (id '2') -> Great Grandparent (id '1')
+    const result = getAncestors('7', mockMembers, 1); // Child1 as starting point (gen 1)
+
+    // Expected: Child1 (gen 1), Parent1 (gen 2), Grandparent1 (gen 3), Great Grandparent (gen 4)
+    expect(result).toHaveLength(4);
+
+    const child1 = result.find(m => m.id === '7');
+    const parent1 = result.find(m => m.id === '4');
+    const grandparent1 = result.find(m => m.id === '2');
+    const greatGrandparent = result.find(m => m.id === '1');
+
+    expect(child1).toBeDefined();
+    expect(parent1).toBeDefined();
+    expect(grandparent1).toBeDefined();
+    expect(greatGrandparent).toBeDefined();
+
+    expect(child1?.generation).toBe(1);
+    expect(parent1?.generation).toBe(2);
+    expect(grandparent1?.generation).toBe(3);
+    expect(greatGrandparent?.generation).toBe(4);
+  });
+
+  it('should return an empty array if member not found', () => {
+    const result = getAncestors('nonexistent', mockMembers, 1);
+    expect(result).toEqual([]);
+  });
+
+  it('should return only the member itself if it has no parents, with adjusted generation', () => {
+    const result = getAncestors('1', mockMembers, 5); // Great Grandparent (no parents) as starting (gen 5)
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe('1');
+    expect(result[0].generation).toBe(5);
+  });
+
+  it('should return only the member itself if it has no parents in the provided list, with adjusted generation', () => {
+    const memberWithMissingParent: FamilyMember[] = [
+      { id: 'A', name: 'A', generation: 1, parents: ['X'], gender: 'male' }, // Parent X doesn't exist
+    ];
+    const result = getAncestors('A', memberWithMissingParent, 1);
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe('A');
+    expect(result[0].generation).toBe(1);
+  });
+
+  it('should handle multiple parents if data model supported it (though current model has one parents array)', () => {
+    // This test assumes getAncestors would trace all parent lines if a member could have multiple distinct parent sets.
+    // Current FamilyMember.parents is string[], implying one set of parents.
+    // If parents: ['p1', 'p2'] means p1 and p2 are a couple, getAncestors handles this.
+    // If a person could have parents: ['pA1', 'pA2'] AND also parents: ['pB1', 'pB2'] (e.g. adoption),
+    // the current getAncestors would follow both paths if data was structured to allow it.
+    // For this test, let's test a member whose parents are both in the list.
+    // Parent2 (id '5') has parent Grandparent2 (id '3'). Grandparent2 has parent Great Grandparent (id '1').
+    const resultForParent2 = getAncestors('5', mockMembers, 1); // Parent2 (gen 1)
+    // Expected: Parent2 (gen 1), Grandparent2 (gen 2), Great Grandparent (gen 3)
+    expect(resultForParent2).toHaveLength(3);
+    expect(resultForParent2.find(m => m.id === '5')?.generation).toBe(1);
+    expect(resultForParent2.find(m => m.id === '3')?.generation).toBe(2);
+    expect(resultForParent2.find(m => m.id === '1')?.generation).toBe(3);
+  });
+
+
+  it('should not modify the original members array', () => {
+    const originalMembersCopy = JSON.parse(JSON.stringify(mockMembers)); // Deep copy
+    getAncestors('7', mockMembers, 1);
+    expect(mockMembers).toEqual(originalMembersCopy);
+  });
+
+  it('should correctly apply a different starting currentGeneration', () => {
+    const result = getAncestors('4', mockMembers, 10); // Parent1 (gen 10)
+    // Expected: Parent1 (gen 10), Grandparent1 (gen 11), Great Grandparent (gen 12)
+    expect(result).toHaveLength(3);
+    expect(result.find(m => m.id === '4')?.generation).toBe(10);
+    expect(result.find(m => m.id === '2')?.generation).toBe(11);
+    expect(result.find(m => m.id === '1')?.generation).toBe(12);
+  });
+
+  // Test for a member who is in the list but has no defined parents array
+  const mockMembersWithNullParents: FamilyMember[] = [
+    { id: '1', name: 'Root', generation: 1, gender: 'male' },
+    { id: '2', name: 'ChildWithNullParents', generation: 2, parents: null as any, gender: 'female' },
+    { id: '3', name: 'ChildWithUndefinedParents', generation: 2, parents: undefined as any, gender: 'male' },
+    { id: '4', name: 'ChildWithEmptyParents', generation: 2, parents: [], gender: 'female' },
+  ];
+
+  it('should handle member with null parents field', () => {
+    const result = getAncestors('2', mockMembersWithNullParents, 1);
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe('2');
+  });
+
+  it('should handle member with undefined parents field', () => {
+    const result = getAncestors('3', mockMembersWithNullParents, 1);
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe('3');
+  });
+
+  it('should handle member with empty parents array', () => {
+    const result = getAncestors('4', mockMembersWithNullParents, 1);
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe('4');
+  });
+
 });

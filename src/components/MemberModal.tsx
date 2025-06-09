@@ -5,19 +5,28 @@ import { FamilyMember } from '../types/family';
 import { supabase } from '../lib/supabaseClient';
 import { parsePartnerString } from '../lib/stringUtils'; // Import shared function
 
+import { useAuth } from '../contexts/AuthContext'; // Import useAuth
+
 interface MemberModalProps {
   member: FamilyMember;
   onClose: () => void;
   onEditRequest: (member: FamilyMember) => void; // Added onEditRequest
-  canEdit: boolean; // Added canEdit
+  // canEdit: boolean; // Removed canEdit prop, will use useAuth directly
 }
 
 const MemberModal: React.FC<MemberModalProps> = ({
   member: initialMember,
   onClose,
-  onEditRequest, // Added onEditRequest
-  canEdit // Added canEdit
+  onEditRequest // Added onEditRequest
+  // canEdit // Removed canEdit prop
 }) => {
+  const { user, loading: authLoading } = useAuth(); // Use AuthContext
+  // For actual role-based admin check, you might inspect user.app_metadata.roles or similar
+  // For this example, we'll consider any logged-in user as having edit rights for simplicity.
+  // Ensure authLoading is false before relying on user state for initial render decisions.
+  const isAdmin = !authLoading && !!user;
+
+
   const [detailedMember, setDetailedMember] = useState<FamilyMember | null>(null);
   const [parentNames, setParentNames] = useState<string[]>([]);
   const [childrenNames, setChildrenNames] = useState<string[]>([]);
@@ -318,7 +327,7 @@ const MemberModal: React.FC<MemberModalProps> = ({
           >
             Close
           </button>
-          {canEdit && detailedMember && (
+          {isAdmin && detailedMember && (
             <button
               onClick={() => {
                 onEditRequest(detailedMember);

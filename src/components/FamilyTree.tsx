@@ -39,7 +39,7 @@ const nodeTypes = {
 
 // Define layout configuration constants
 const layoutConfig: LayoutConfig = {
-    generationSpacing: 480, // Adjusted from 400
+    generationSpacing: 600, // Increased from 480
     memberSpacing: 150,
     nodeWidth: 208,
     siblingSpacing: 70,

@@ -15,4 +15,15 @@
     background-color: var(--accent);
   }
   */
-  
+
+/* Styles for node transitions (collapse/expand) */
+.react-flow__node {
+  transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out !important;
+}
+
+/* When a node is exiting (being hidden), you might want a specific animation */
+/* This is harder to achieve directly with React Flow's default behavior as it just removes nodes */
+/* However, the opacity transition on the node itself should cover the fade-out. */
+
+/* If nodes had a specific class for 'entering' or 'exiting', those could be targeted. */
+/* For now, the general transition on .react-flow__node will apply when nodes are added/removed by React Flow's state updates. */
