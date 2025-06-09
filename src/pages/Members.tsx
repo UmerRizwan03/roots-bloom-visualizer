@@ -33,19 +33,14 @@ const Members = () => {
     fetchPageMembers();
   }, [fetchPageMembers]);
 
-  const getPartnerDetails = (member: FamilyMember) => {
-    const partners: FamilyMember[] = [];
-    if (member.spouse) {
-      const spouse = members.find(m => m.id === member.spouse); 
-      if (spouse) partners.push(spouse);
+  // Updated getPartnerDetails to process comma-separated string
+  const getPartnerDetails = (member: FamilyMember): string[] => {
+    if (member.partners && typeof member.partners === 'string') {
+      return member.partners.split(',')
+        .map(name => name.trim())
+        .filter(name => name !== ''); // Ensure empty strings are not included
     }
-    if (member.partners) {
-      member.partners.forEach(partnerId => {
-        const partner = members.find(m => m.id === partnerId); 
-        if (partner) partners.push(partner);
-      });
-    }
-    return partners;
+    return [];
   };
 
   const calculateAge = (birthDate?: string, deathDate?: string) => {
@@ -260,43 +255,19 @@ const Members = () => {
                       )}
                     </div>
 
-                    {partners.length > 0 && (
+                    {/* Updated Partner Display */}
+                    {partners.length > 0 && ( // partners is now an array of strings (names)
                       <div className="border-t dark:border-slate-700 pt-4">
                         <div className="flex items-center mb-3">
                           <Heart className="w-4 h-4 mr-2 text-red-500" />
                           <span className="font-semibold text-gray-800 dark:text-slate-200">
-                            {partners.length === 1 ? 'Partner' : 'Partners'}
+                            Partner(s)
                           </span>
                         </div>
-                        {partners.map((partner) => (
-                          <div key={partner.id} className="bg-gray-50 dark:bg-slate-700/50 rounded-lg p-3 mb-2 last:mb-0">
-                            <div className="font-medium text-gray-800 dark:text-slate-200">{partner.name}</div>
-                            <div className="text-sm text-gray-600 dark:text-slate-300 space-y-1">
-                              {partner.occupation && (
-                                <div className="flex items-center">
-                                  <Briefcase className="w-3 h-3 mr-1 text-gray-400 dark:text-slate-500" />
-                                  <span>{partner.occupation}</span>
-                                </div>
-                              )}
-                              {partner.bloodType && (
-                                <div className="flex items-center">
-                                  <Droplets className="w-3 h-3 mr-1 text-gray-400 dark:text-slate-500" />
-                                  <span>Blood Type: {partner.bloodType}</span>
-                                </div>
-                              )}
-                              {partner.mobileNumber && (
-                                <div className="flex items-center">
-                                  <Phone className="w-3 h-3 mr-1 text-gray-400 dark:text-slate-500" />
-                                  <span>{partner.mobileNumber}</span>
-                                </div>
-                              )}
-                              {partner.email && (
-                                <div className="flex items-center">
-                                  <Mail className="w-3 h-3 mr-1 text-gray-400 dark:text-slate-500" />
-                                  <span>{partner.email}</span>
-                                </div>
-                              )}
-                            </div>
+                        {partners.map((name, index) => (
+                          <div key={index} className="bg-gray-50 dark:bg-slate-700/50 rounded-lg p-3 mb-2 last:mb-0">
+                            <div className="font-medium text-gray-800 dark:text-slate-200">{name}</div>
+                            {/* Other partner details like occupation, blood type, etc., are removed as they are not available from the string */}
                           </div>
                         ))}
                       </div>
