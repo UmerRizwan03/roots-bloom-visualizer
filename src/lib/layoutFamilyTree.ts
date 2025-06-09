@@ -240,7 +240,7 @@ export function layoutFamilyTree(
     // For Person/Lineage, this is implicitly handled by the initial filtering.
     // The `hasChildren` prop for the button should reflect if there *are* children in allMembers,
     // not just currently visible ones.
-    const hasAnyChildren = allMembers.some(child => child.parents?.includes(member.id));
+    const hasAnyChildren = !!allMembers.some(child => child.parents?.includes(member.id)); // Explicit boolean cast
     
     return {
         id: member.id,
