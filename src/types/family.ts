@@ -14,7 +14,7 @@ export interface FamilyMember {
   children?: string[];
   // spouse?: string; // Replaced by new partners field
   // partners?: string[]; // Replaced by new partners field, now a comma-separated string
-  // Comma-separated string of partner names
+  // Raw string from DB representing an array of partner names (e.g., JSON string like '["name1", "name2"]' or PostgreSQL text array like '{"name1","name2"}')
   partners?: string;
   bloodType?: string;
   mobileNumber?: string;

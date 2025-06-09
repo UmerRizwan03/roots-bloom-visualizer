@@ -6,6 +6,50 @@ import { User, Users, Calendar, MapPin, Briefcase, Heart, Droplets, Phone, Mail,
 import { Link } from 'react-router-dom';
 import ThemeToggleButton from '../components/ThemeToggleButton';
 
+// Helper function to parse the partners string (same as in MemberModal.tsx)
+const parsePartnerString = (partnersStr: string | null | undefined): string[] => {
+  if (!partnersStr || partnersStr.trim() === '') {
+    return [];
+  }
+
+  // Attempt JSON.parse
+  try {
+    const parsed = JSON.parse(partnersStr);
+    if (Array.isArray(parsed) && parsed.every(item => typeof item === 'string')) {
+      return parsed.map(name => name.trim()).filter(name => name.length > 0);
+    }
+    console.warn("Partners string parsed as JSON but is not an array of strings:", parsed);
+  } catch (e) {
+    // console.warn("JSON.parse failed for partners string (will try pg-like):", partnersStr, e);
+  }
+
+  // Attempt PostgreSQL-like text array parsing
+  if (partnersStr.startsWith('{') && partnersStr.endsWith('}')) {
+    try {
+      const innerStr = partnersStr.substring(1, partnersStr.length - 1);
+      if (innerStr.trim() === '') return [];
+
+      const names = innerStr.split(',').map(name => {
+        let trimmedName = name.trim();
+        if (trimmedName.startsWith('"') && trimmedName.endsWith('"')) {
+          trimmedName = trimmedName.substring(1, trimmedName.length - 1);
+          trimmedName = trimmedName.replace(/""/g, '"');
+        }
+        return trimmedName;
+      }).filter(name => name.length > 0);
+
+      if (names.length > 0 && names.some(name => name.length > 0)) {
+        return names;
+      }
+    } catch (e) {
+      console.error("Error parsing PostgreSQL-like array string:", partnersStr, e);
+    }
+  }
+
+  console.warn("Could not parse partners string using known methods. String was:", partnersStr);
+  return [];
+};
+
 const Members = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [members, setMembers] = useState<FamilyMember[]>([]); 
@@ -33,14 +77,9 @@ const Members = () => {
     fetchPageMembers();
   }, [fetchPageMembers]);
 
-  // Updated getPartnerDetails to process comma-separated string
+  // Updated getPartnerDetails to use the robust parser
   const getPartnerDetails = (member: FamilyMember): string[] => {
-    if (member.partners && typeof member.partners === 'string') {
-      return member.partners.split(',')
-        .map(name => name.trim())
-        .filter(name => name !== ''); // Ensure empty strings are not included
-    }
-    return [];
+    return parsePartnerString(member.partners);
   };
 
   const calculateAge = (birthDate?: string, deathDate?: string) => {
