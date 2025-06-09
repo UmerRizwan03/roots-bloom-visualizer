@@ -1,6 +1,6 @@
 // Helper function to parse the partners string
 export const parsePartnerString = (partnersStr: string | null | undefined): string[] => {
-  if (!partnersStr || partnersStr.trim() === '') {
+  if (typeof partnersStr !== 'string' || partnersStr.trim() === '') {
     return [];
   }
 
