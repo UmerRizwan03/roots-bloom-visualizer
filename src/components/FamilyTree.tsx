@@ -27,7 +27,10 @@ interface FamilyTreeProps {
   onSetEditingMember: (member: FamilyMember) => void;
   onDeleteMember: (memberId: string) => void;
   focusedMemberId?: string | null;
-  canEdit: boolean; // Add canEdit prop
+  hoveredMemberId?: string | null;
+  canEdit: boolean;
+  viewMode: 'FullTree' | 'PersonView' | 'LineageView'; // Added viewMode
+  lineageDirection: 'Ancestors' | 'Descendants'; // Added lineageDirection
 }
 
 const nodeTypes = {
@@ -36,7 +39,7 @@ const nodeTypes = {
 
 // Define layout configuration constants
 const layoutConfig: LayoutConfig = {
-    generationSpacing: 400,
+    generationSpacing: 480, // Adjusted from 400
     memberSpacing: 150,
     nodeWidth: 208,
     siblingSpacing: 70,
@@ -44,7 +47,18 @@ const layoutConfig: LayoutConfig = {
     // minFamilyBlockSpacing: 50, // Or remove if not used in the moved logic
 };
 
-const FamilyTree: React.FC<FamilyTreeProps> = ({ members, onMemberSelect, searchQuery, onSetEditingMember, onDeleteMember, focusedMemberId, canEdit }) => {
+const FamilyTree: React.FC<FamilyTreeProps> = ({
+  members,
+  onMemberSelect,
+  searchQuery,
+  onSetEditingMember,
+  onDeleteMember,
+  focusedMemberId,
+  hoveredMemberId,
+  canEdit,
+  viewMode, // Added viewMode
+  lineageDirection // Added lineageDirection
+}) => {
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [collapsedStates, setCollapsedStates] = useState<Record<string, boolean>>({});
@@ -103,16 +117,24 @@ const FamilyTree: React.FC<FamilyTreeProps> = ({ members, onMemberSelect, search
       focusedMemberId,
       memoizedCallbacks,
       layoutConfig,
-      canEdit, // Pass canEdit to layoutFamilyTree
-      flowViewportWidth // Pass current viewport width
+      canEdit,
+      flowViewportWidth,
+      hoveredMemberId,
+      viewMode, // Pass viewMode
+      lineageDirection // Pass lineageDirection
     );
-  }, [members, searchQuery, collapsedStates, focusedMemberId, memoizedCallbacks, layoutConfig, canEdit, flowViewportWidth]); // Add flowViewportWidth
+  }, [members, searchQuery, collapsedStates, focusedMemberId, hoveredMemberId, memoizedCallbacks, layoutConfig, canEdit, flowViewportWidth, viewMode, lineageDirection]);
 
   // Update ReactFlow state when calculatedNodes or calculatedEdges change
   useEffect(() => {
     setNodes(calculatedNodes);
     setEdges(calculatedEdges);
   }, [calculatedNodes, calculatedEdges, setNodes, setEdges]);
+
+  const maxGeneration = useMemo(() => {
+    if (!calculatedNodes || calculatedNodes.length === 0) return 0;
+    return Math.max(...calculatedNodes.map(node => node.data.member.generation || 0));
+  }, [calculatedNodes]);
 
   return (
     <div className="w-full h-full relative" ref={reactFlowWrapperRef}>
@@ -148,7 +170,27 @@ const FamilyTree: React.FC<FamilyTreeProps> = ({ members, onMemberSelect, search
           pannable 
           zoomable 
         />
-        <Background variant={BackgroundVariant.Dots} gap={40} size={2} color="#a7f3d0" style={{ opacity: 0.3 }} />
+        <Background variant={BackgroundVariant.Dots} gap={40} size={2} color="#a7f3d0" style={{ opacity: 0.3 }}>
+          {maxGeneration > 0 && Array.from({ length: maxGeneration }, (_, i) => i + 1).map(genNumber => (
+            <div
+              key={`gen-bg-${genNumber}`}
+              style={{
+                position: 'absolute',
+                left: 0,
+                // The top of the band for generation 'genNumber'
+                // Node Y is (genNumber - 1) * generationSpacing.
+                // We want the band to roughly center the nodes of that generation.
+                // So, it starts a bit before the nodes and extends for one generationSpacing.
+                // Let's try starting it at the node Y position.
+                top: `${((genNumber - 1) * layoutConfig.generationSpacing)}px`,
+                width: '100%',
+                height: `${layoutConfig.generationSpacing}px`,
+                backgroundColor: genNumber % 2 === 0 ? 'rgba(0,0,0,0.025)' : 'rgba(0,0,0,0.015)', // Subtle alternating shades
+                zIndex: -2, // Ensure it's behind the dot pattern if possible, or at least nodes/edges
+              }}
+            />
+          ))}
+        </Background>
       </ReactFlow>
     </div>
   );

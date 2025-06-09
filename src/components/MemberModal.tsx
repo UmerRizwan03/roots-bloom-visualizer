@@ -6,11 +6,18 @@ import { supabase } from '../lib/supabaseClient';
 import { parsePartnerString } from '../lib/stringUtils'; // Import shared function
 
 interface MemberModalProps {
-  member: FamilyMember; // This will be the initially passed member, might be partial
+  member: FamilyMember;
   onClose: () => void;
+  onEditRequest: (member: FamilyMember) => void; // Added onEditRequest
+  canEdit: boolean; // Added canEdit
 }
 
-const MemberModal: React.FC<MemberModalProps> = ({ member: initialMember, onClose }) => {
+const MemberModal: React.FC<MemberModalProps> = ({
+  member: initialMember,
+  onClose,
+  onEditRequest, // Added onEditRequest
+  canEdit // Added canEdit
+}) => {
   const [detailedMember, setDetailedMember] = useState<FamilyMember | null>(null);
   const [parentNames, setParentNames] = useState<string[]>([]);
   const [childrenNames, setChildrenNames] = useState<string[]>([]);
@@ -303,14 +310,26 @@ const MemberModal: React.FC<MemberModalProps> = ({ member: initialMember, onClos
         </div>
 
         {/* Footer */}
-        <div className="border-t bg-gray-50 px-6 py-4 rounded-b-2xl">
+        <div className="border-t bg-gray-50 px-6 py-4 rounded-b-2xl flex space-x-3">
           <button
             onClick={onClose}
-            className="w-full bg-emerald-600 text-white py-2 px-4 rounded-lg 
-                       hover:bg-emerald-700 transition-colors font-medium"
+            className="flex-1 bg-slate-500 text-white py-2.5 px-4 rounded-lg
+                       hover:bg-slate-600 transition-colors font-medium text-sm"
           >
             Close
           </button>
+          {canEdit && detailedMember && (
+            <button
+              onClick={() => {
+                onEditRequest(detailedMember);
+                onClose(); // Close detail modal to open edit modal
+              }}
+              className="flex-1 bg-blue-500 text-white py-2.5 px-4 rounded-lg
+                         hover:bg-blue-600 transition-colors font-medium text-sm"
+            >
+              Edit Member
+            </button>
+          )}
         </div>
       </div>
     </div>
