@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabaseClient'; 
 import { FamilyMember } from '../types/family';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
-import { User, Calendar, MapPin, Briefcase, Heart, Droplets, Phone, Mail, Search, X } from 'lucide-react';
+import { User, Users, Calendar, MapPin, Briefcase, Heart, Droplets, Phone, Mail, Search, X } from 'lucide-react'; // Added Users
 import { Link } from 'react-router-dom';
 import ThemeToggleButton from '../components/ThemeToggleButton';
 
@@ -160,6 +160,13 @@ const Members = () => {
               const partners = getPartnerDetails(member);
               const age = calculateAge(member.birthDate, member.deathDate);
 
+              const parentDetails = member.parents && member.parents.length > 0
+                ? member.parents.map(parentId => {
+                    const parent = members.find(m => m.id === parentId);
+                    return parent ? parent.name : null;
+                  }).filter(name => name !== null) as string[]
+                : [];
+
               return (
                 <Card key={member.id} className="overflow-hidden hover:shadow-xl transition-shadow duration-300 dark:bg-slate-800">
                   <CardHeader className={`pb-4 ${member.gender === 'male' ? 'bg-gradient-to-r from-blue-500 to-indigo-600' : 'bg-gradient-to-r from-rose-500 to-pink-600'} text-white`}>
@@ -233,6 +240,22 @@ const Members = () => {
                         <div className="flex items-center text-sm text-gray-600 dark:text-slate-300">
                           <Mail className="w-4 h-4 mr-2 text-gray-400 dark:text-slate-500" />
                           <span>{member.email}</span>
+                        </div>
+                      )}
+
+                      {/* Display Parent Names */}
+                      {parentDetails.length > 0 && (
+                        <div className="flex items-center text-sm text-gray-600 dark:text-slate-300">
+                          <Users className="w-4 h-4 mr-2 text-gray-400 dark:text-slate-500" />
+                          <span>Parents: {parentDetails.join(' & ')}</span>
+                        </div>
+                      )}
+
+                      {/* Display Co-parent Name */}
+                      {member.coParentName && (
+                        <div className="flex items-center text-sm text-gray-600 dark:text-slate-300">
+                          <Users className="w-4 h-4 mr-2 text-gray-400 dark:text-slate-500" />
+                          <span>Co-parent: {member.coParentName}</span>
                         </div>
                       )}
                     </div>
