@@ -46,3 +46,47 @@ export const getDescendants = (
   }
   return descendants;
 };
+
+export const getAncestors = (
+  memberId: string,
+  allMembers: FamilyMember[],
+  currentGeneration: number = 1 // Focused member is gen 1, parents gen 2, etc. (relative to focused)
+): FamilyMember[] => {
+  const ancestors: FamilyMember[] = [];
+  const memberMap = new Map(allMembers.map(m => [m.id, m]));
+
+  const focusedMember = memberMap.get(memberId);
+  if (!focusedMember) return [];
+
+  // Queue stores tuples of [member, generation_relative_to_focused_member]
+  const queue: [{ member: FamilyMember; generation: number }] = [
+    { member: focusedMember, generation: currentGeneration }
+  ];
+  const visited = new Set<string>();
+
+  let head = 0;
+  while(head < queue.length) {
+    const { member: individual, generation } = queue[head++]; // Dequeue
+
+    if (!visited.has(individual.id)) {
+      // Store with the calculated relative generation
+      ancestors.push({ ...individual, generation });
+      visited.add(individual.id);
+
+      if (individual.parents) {
+        individual.parents.forEach(parentId => {
+          const parent = memberMap.get(parentId);
+          if (parent && !visited.has(parentId)) {
+            // Enqueue with incremented relative generation
+            queue.push({ member: parent, generation: generation + 1 });
+          }
+        });
+      }
+    }
+  }
+  // The ancestors array will have generations assigned relative to the focused member.
+  // e.g., focused: gen 1, parents: gen 2, grandparents: gen 3
+  // This might need to be adjusted or re-calculated based on how layoutFamilyTree handles generations
+  // for ancestor view. For now, this function assigns relative generations.
+  return ancestors;
+};

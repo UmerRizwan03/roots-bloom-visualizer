@@ -24,9 +24,8 @@ import { Dialog, DialogContent } from "@/components/ui/dialog"; // Import Dialog
 import {
   Sheet,
   SheetContent,
-  // SheetHeader, // Not used for now, Sidebar has its own header
-  // SheetTitle,  // Not used for now
 } from "@/components/ui/sheet";
+import Breadcrumbs from '../components/Breadcrumbs'; // Import Breadcrumbs
 
 // Data for navigation links that will be used in mobile sidebar
 const mobileNavLinks = [
@@ -36,10 +35,11 @@ const mobileNavLinks = [
 ];
 
 const Index = () => {
-  const { user, loading: authLoading, signOut } = useAuth(); // Get auth state, including signOut
-  const [selectedMember, setSelectedMember] = useState<FamilyMember | null>(null);
-  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false); // Add state for login modal
-  const [isSignUpModalOpen, setIsSignUpModalOpen] = useState(false); // Add state for sign up modal
+  const { user, loading: authLoading, signOut } = useAuth();
+  // const [selectedMember, setSelectedMember] = useState<FamilyMember | null>(null); // Replaced by detailedMember
+  const [detailedMember, setDetailedMember] = useState<FamilyMember | null>(null); // State for detail modal
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  const [isSignUpModalOpen, setIsSignUpModalOpen] = useState(false);
   const [isAddMemberModalOpen, setIsAddMemberModalOpen] = useState(false);
   const [members, setMembers] = useState<FamilyMember[]>([]); 
   const [editingMember, setEditingMember] = useState<FamilyMember | null>(null);
@@ -48,6 +48,13 @@ const Index = () => {
   const [focusedMemberId, setFocusedMemberId] = useState<string | null>(null); 
   const [searchQuery, setSearchQuery] = useState<string>(""); 
   const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false); 
+  const [hoveredMemberId, setHoveredMemberId] = useState<string | null>(null); // Added hoveredMemberId state
+
+  // State for View Modes
+  type ViewMode = 'FullTree' | 'PersonView' | 'LineageView';
+  type LineageDirection = 'Ancestors' | 'Descendants';
+  const [viewMode, setViewMode] = useState<ViewMode>('FullTree');
+  const [lineageDirection, setLineageDirection] = useState<LineageDirection>('Descendants');
 
 
   const fetchMembers = useCallback(async () => {
@@ -166,27 +173,38 @@ const Index = () => {
       setFetchError(`Failed to delete member: ${error.message}`); 
     } else {
       await fetchMembers(); 
-      if (selectedMember?.id === memberId) {
-        setSelectedMember(null);
+      // if (selectedMember?.id === memberId) { // Check detailedMember instead
+      //   setSelectedMember(null);
+      // }
+      if (detailedMember?.id === memberId) {
+        setDetailedMember(null);
       }
       if (editingMember?.id === memberId) {
         setEditingMember(null);
       }
     }
-  }, [fetchMembers, selectedMember, editingMember, user]); // Add user
+  }, [fetchMembers, detailedMember, editingMember, user]); // Updated dependency
 
-  const handleMemberSelect = useCallback((member: FamilyMember) => {
-    setSelectedMember(member);
-  }, []); 
-
-  const handleCloseModal = useCallback(() => {
-    setSelectedMember(null);
-  }, []); 
+  // New combined handler for focusing and showing details
+  const handleFocusAndShowDetails = useCallback((memberId: string | null) => {
+    if (memberId) {
+      setFocusedMemberId(memberId);
+      const memberObj = members.find(m => m.id === memberId);
+      setDetailedMember(memberObj || null);
+    } else {
+      setFocusedMemberId(null);
+      setDetailedMember(null);
+    }
+  }, [members]);
 
   const handleMemberSelectFromSheet = useCallback((memberId: string) => {
-    setFocusedMemberId(memberId);
+    handleFocusAndShowDetails(memberId);
     setIsDrawerOpen(false); // Close drawer after selection
-  }, []); 
+  }, [handleFocusAndShowDetails]);
+
+  const handleResetFocus = useCallback(() => {
+    handleFocusAndShowDetails(null); // Clear focus and detail view
+  }, [handleFocusAndShowDetails]);
 
   const handleSearchQueryChange = useCallback((query: string) => {
     setSearchQuery(query);
@@ -287,8 +305,15 @@ const Index = () => {
       </header>
 
       {/* Section for Title/Description - Remains constrained */}
-      <section className="pt-8"> 
+      <section className="pt-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          {/* Breadcrumbs Integration */}
+          <Breadcrumbs
+            focusedMemberId={focusedMemberId}
+            members={members}
+            onSelectMember={setFocusedMemberId} // Pass setFocusedMemberId directly
+            className="mb-4 ml-1" // Add some margin
+          />
           <div className="text-center mb-8">
             <h2 className="text-4xl md:text-6xl font-bold text-gray-900 dark:text-slate-100 mb-4">
               Our Family
@@ -312,11 +337,14 @@ const Index = () => {
                 <div className="absolute inset-0 bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:from-slate-800 dark:via-slate-900 dark:to-black" />
                 <FamilyTree 
                   members={members}
-                  onMemberSelect={handleMemberSelect} 
+                  onMemberSelect={(member) => handleFocusAndShowDetails(member.id)} // Updated
                   searchQuery={searchQuery} 
                   onSetEditingMember={handleSetEditingMember} 
                   onDeleteMember={handleDeleteMember}     
                   focusedMemberId={focusedMemberId}
+                  hoveredMemberId={hoveredMemberId}
+                  viewMode={viewMode}
+                  lineageDirection={lineageDirection}
                 />
               </div>
             </div>
@@ -352,6 +380,15 @@ const Index = () => {
                 onMemberSelect={(memberId) => {
                   handleMemberSelectFromSheet(memberId); // This already closes drawer
                 }}
+                focusedMemberId={focusedMemberId} // Pass focusedMemberId
+                onResetFocus={handleResetFocus} // Pass handleResetFocus
+                onHoverMember={setHoveredMemberId} // Pass setHoveredMemberId
+                viewMode={viewMode} // Pass viewMode
+                setViewMode={setViewMode} // Pass setViewMode
+                lineageDirection={lineageDirection} // Pass lineageDirection
+                setLineageDirection={setLineageDirection} // Pass setLineageDirection
+                isSidebarOpen={isDrawerOpen} // Pass isDrawerOpen as isSidebarOpen
+                onToggleSidebar={toggleDrawer} // Pass toggleDrawer as onToggleSidebar
               />
 
               {/* Spacer to push theme/auth to bottom */}
@@ -393,8 +430,13 @@ const Index = () => {
       </div>
 
       {/* Modals */}
-      {selectedMember && (
-        <MemberModal member={selectedMember} onClose={handleCloseModal} />
+      {detailedMember && (
+        <MemberModal
+          member={detailedMember}
+          onClose={() => setDetailedMember(null)}
+          onEditRequest={handleSetEditingMember} // Pass edit handler
+          canEdit={!authLoading && !!user && user.role === 'admin'} // Pass canEdit status (example logic)
+        />
       )}
       {isAddMemberModalOpen && (
         <AddMemberForm
