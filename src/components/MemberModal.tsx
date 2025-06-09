@@ -1,19 +1,118 @@
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { X, Calendar, MapPin, Briefcase, Heart, Users, User } from 'lucide-react';
 import { FamilyMember } from '../types/family';
-import { familyMembers } from '../data/familyData';
+import { supabase } from '../lib/supabaseClient';
 
 interface MemberModalProps {
-  member: FamilyMember;
+  member: FamilyMember; // This will be the initially passed member, might be partial
   onClose: () => void;
 }
 
-const MemberModal: React.FC<MemberModalProps> = ({ member, onClose }) => {
-  // Get related family members
-  const parents = member.parents?.map(id => familyMembers.find(m => m.id === id)).filter(Boolean) || [];
-  const children = member.children?.map(id => familyMembers.find(m => m.id === id)).filter(Boolean) || [];
-  const spouse = member.spouse ? familyMembers.find(m => m.id === member.spouse) : null;
+const MemberModal: React.FC<MemberModalProps> = ({ member: initialMember, onClose }) => {
+  const [detailedMember, setDetailedMember] = useState<FamilyMember | null>(null);
+  const [parentNames, setParentNames] = useState<string[]>([]);
+  const [childrenNames, setChildrenNames] = useState<string[]>([]);
+  const [spouseName, setSpouseName] = useState<string | null>(null);
+  const [partnerNames, setPartnerNames] = useState<string[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+
+  const fetchNameById = async (id: string): Promise<string | null> => {
+    if (!id) return null;
+    const { data, error } = await supabase
+      .from('family_members')
+      .select('name')
+      .eq('id', id)
+      .single();
+    if (error) {
+      console.error(`Error fetching name for ID ${id}:`, error);
+      return null;
+    }
+    return data?.name || null;
+  };
+
+  const fetchNamesByIds = async (ids: string[]): Promise<string[]> => {
+    if (!ids || ids.length === 0) return [];
+    const { data, error } = await supabase
+      .from('family_members')
+      .select('id, name')
+      .in('id', ids);
+    if (error) {
+      console.error(`Error fetching names for IDs ${ids.join(',')}:`, error);
+      return [];
+    }
+    // Preserve order of IDs if necessary, though for display, order might not be critical
+    // For now, just return the names found.
+    return data?.map(m => m.name).filter(Boolean) as string[] || [];
+  };
+
+  useEffect(() => {
+    const fetchModalData = async () => {
+      if (!initialMember?.id) {
+        setIsLoading(false);
+        setDetailedMember(null);
+        return;
+      }
+
+      setIsLoading(true);
+      setDetailedMember(null); // Clear previous member details
+      setParentNames([]);
+      setChildrenNames([]);
+      setSpouseName(null);
+      setPartnerNames([]);
+
+      try {
+        // Fetch main member details
+        const { data: memberData, error: memberError } = await supabase
+          .from('family_members')
+          .select('*')
+          .eq('id', initialMember.id)
+          .single();
+
+        if (memberError) {
+          console.error('Error fetching detailed member data:', memberError);
+          setDetailedMember(null);
+          setIsLoading(false);
+          return;
+        }
+
+        setDetailedMember(memberData);
+
+        if (memberData) {
+          // Fetch parents
+          if (memberData.parents && memberData.parents.length > 0) {
+            const fetchedParentNames = await fetchNamesByIds(memberData.parents);
+            setParentNames(fetchedParentNames);
+          }
+
+          // Fetch children
+          if (memberData.children && memberData.children.length > 0) {
+            const fetchedChildrenNames = await fetchNamesByIds(memberData.children);
+            setChildrenNames(fetchedChildrenNames);
+          }
+
+          // Fetch spouse
+          if (memberData.spouse) {
+            const fetchedSpouseName = await fetchNameById(memberData.spouse);
+            setSpouseName(fetchedSpouseName);
+          }
+
+          // Fetch partners
+          if (memberData.partners && memberData.partners.length > 0) {
+            const fetchedPartnerNames = await fetchNamesByIds(memberData.partners);
+            setPartnerNames(fetchedPartnerNames);
+          }
+        }
+      } catch (error) {
+        console.error('Error in fetchModalData:', error);
+        setDetailedMember(null);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchModalData();
+  }, [initialMember?.id]);
 
   const formatDate = (dateString?: string) => {
     if (!dateString) return 'Unknown';
@@ -25,11 +124,43 @@ const MemberModal: React.FC<MemberModalProps> = ({ member, onClose }) => {
   };
 
   const calculateAge = () => {
-    if (!member.birthDate) return null;
-    const birth = new Date(member.birthDate);
-    const end = member.deathDate ? new Date(member.deathDate) : new Date();
-    return end.getFullYear() - birth.getFullYear();
+    if (!detailedMember?.birthDate) return null;
+    const birth = new Date(detailedMember.birthDate);
+    const end = detailedMember.deathDate ? new Date(detailedMember.deathDate) : new Date();
+    const age = end.getFullYear() - birth.getFullYear();
+    // Adjust age if birthday hasn't occurred yet this year
+    const m = end.getMonth() - birth.getMonth();
+    if (m < 0 || (m === 0 && end.getDate() < birth.getDate())) {
+        return age -1;
+    }
+    return age;
   };
+
+  if (isLoading) {
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[55] p-4">
+        <div className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl">
+          <p className="text-center text-xl">Loading member details...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!detailedMember) {
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[55] p-4">
+        <div className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl text-center">
+          <p className="text-xl mb-4">Member details not available.</p>
+          <button
+            onClick={onClose}
+            className="bg-gray-500 text-white py-2 px-4 rounded-lg hover:bg-gray-600 transition-colors font-medium"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[55] p-4"> {/* Changed z-50 to z-[55] */}
@@ -37,7 +168,7 @@ const MemberModal: React.FC<MemberModalProps> = ({ member, onClose }) => {
         {/* Header */}
         <div className={`
           relative p-6 rounded-t-2xl
-          ${member.gender === 'male' 
+          ${detailedMember.gender === 'male'
             ? 'bg-gradient-to-r from-blue-500 to-blue-600' 
             : 'bg-gradient-to-r from-pink-500 to-pink-600'
           }
@@ -51,10 +182,10 @@ const MemberModal: React.FC<MemberModalProps> = ({ member, onClose }) => {
           
           <div className="flex items-center space-x-4 text-white">
             <div className="w-20 h-20 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
-              {member.photo ? (
+              {detailedMember.photo ? (
                 <img 
-                  src={member.photo} 
-                  alt={member.name}
+                  src={detailedMember.photo}
+                  alt={detailedMember.name}
                   className="w-20 h-20 rounded-full object-cover"
                 />
               ) : (
@@ -62,10 +193,10 @@ const MemberModal: React.FC<MemberModalProps> = ({ member, onClose }) => {
               )}
             </div>
             <div>
-              <h2 className="text-3xl font-bold">{member.name}</h2>
-              {calculateAge() && (
+              <h2 className="text-3xl font-bold">{detailedMember.name}</h2>
+              {calculateAge() !== null && (
                 <p className="text-lg opacity-90">
-                  {calculateAge()} years old {member.deathDate && '(deceased)'}
+                  {calculateAge()} years old {detailedMember.deathDate && '(deceased)'}
                 </p>
               )}
             </div>
@@ -81,36 +212,46 @@ const MemberModal: React.FC<MemberModalProps> = ({ member, onClose }) => {
                 <Calendar className="h-5 w-5" />
                 <div>
                   <p className="font-medium">Born</p>
-                  <p>{formatDate(member.birthDate)}</p>
+                  <p>{formatDate(detailedMember.birthDate)}</p>
                 </div>
               </div>
               
-              {member.deathDate && (
+              {detailedMember.deathDate && (
                 <div className="flex items-center space-x-2 text-gray-600">
                   <Calendar className="h-5 w-5" />
                   <div>
                     <p className="font-medium">Died</p>
-                    <p>{formatDate(member.deathDate)}</p>
+                    <p>{formatDate(detailedMember.deathDate)}</p>
                   </div>
                 </div>
               )}
               
-              {member.birthPlace && (
+              {detailedMember.birthPlace && (
                 <div className="flex items-center space-x-2 text-gray-600">
                   <MapPin className="h-5 w-5" />
                   <div>
                     <p className="font-medium">Birthplace</p>
-                    <p>{member.birthPlace}</p>
+                    <p>{detailedMember.birthPlace}</p>
                   </div>
                 </div>
               )}
               
-              {member.occupation && (
+              {detailedMember.occupation && (
                 <div className="flex items-center space-x-2 text-gray-600">
                   <Briefcase className="h-5 w-5" />
                   <div>
                     <p className="font-medium">Occupation</p>
-                    <p>{member.occupation}</p>
+                    <p>{detailedMember.occupation}</p>
+                  </div>
+                </div>
+              )}
+
+              {detailedMember.coParentName && (
+                <div className="flex items-center space-x-2 text-gray-600">
+                  <Users className="h-5 w-5" /> {/* Using Users icon as in Node */}
+                  <div>
+                    <p className="font-medium">Co-parent Name</p>
+                    <p>{detailedMember.coParentName}</p>
                   </div>
                 </div>
               )}
@@ -118,44 +259,60 @@ const MemberModal: React.FC<MemberModalProps> = ({ member, onClose }) => {
 
             {/* Family Relationships */}
             <div className="space-y-4">
-              {spouse && (
+              {spouseName && (
                 <div>
                   <div className="flex items-center space-x-2 text-gray-600 mb-2">
                     <Heart className="h-5 w-5" />
                     <p className="font-medium">Spouse</p>
                   </div>
                   <div className="bg-gray-50 rounded-lg p-3">
-                    <p className="font-medium">{spouse.name}</p>
+                    <p className="font-medium">{spouseName}</p>
                   </div>
                 </div>
               )}
 
-              {parents.length > 0 && (
+              {partnerNames.length > 0 && (
                 <div>
                   <div className="flex items-center space-x-2 text-gray-600 mb-2">
-                    <Users className="h-5 w-5" />
-                    <p className="font-medium">Parents</p>
+                    <Heart className="h-5 w-5" /> {/* Consider a different icon for partners if desired */}
+                    <p className="font-medium">Partners</p>
                   </div>
                   <div className="space-y-2">
-                    {parents.map((parent) => (
-                      <div key={parent?.id} className="bg-gray-50 rounded-lg p-3">
-                        <p className="font-medium">{parent?.name}</p>
+                    {partnerNames.map((name, index) => (
+                      <div key={index} className="bg-gray-50 rounded-lg p-3">
+                        <p className="font-medium">{name}</p>
                       </div>
                     ))}
                   </div>
                 </div>
               )}
 
-              {children.length > 0 && (
+              {parentNames.length > 0 && (
                 <div>
                   <div className="flex items-center space-x-2 text-gray-600 mb-2">
                     <Users className="h-5 w-5" />
+                    <p className="font-medium">Parents</p>
+                  </div>
+                  <div className="space-y-2">
+                    {parentNames.map((name, index) => (
+                      <div key={index} className="bg-gray-50 rounded-lg p-3">
+                        <p className="font-medium">{name}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {childrenNames.length > 0 && (
+                <div>
+                  <div className="flex items-center space-x-2 text-gray-600 mb-2">
+                    <Users className="h-5 w-5" /> {/* Consider a different icon for children if desired, e.g. UserPlus */}
                     <p className="font-medium">Children</p>
                   </div>
                   <div className="space-y-2">
-                    {children.map((child) => (
-                      <div key={child?.id} className="bg-gray-50 rounded-lg p-3">
-                        <p className="font-medium">{child?.name}</p>
+                    {childrenNames.map((name, index) => (
+                      <div key={index} className="bg-gray-50 rounded-lg p-3">
+                        <p className="font-medium">{name}</p>
                       </div>
                     ))}
                   </div>
@@ -165,11 +322,11 @@ const MemberModal: React.FC<MemberModalProps> = ({ member, onClose }) => {
           </div>
 
           {/* Biography */}
-          {member.bio && (
+          {detailedMember.bio && (
             <div>
               <h3 className="text-xl font-semibold text-gray-800 mb-3">Biography</h3>
               <div className="bg-gray-50 rounded-lg p-4">
-                <p className="text-gray-700 leading-relaxed">{member.bio}</p>
+                <p className="text-gray-700 leading-relaxed">{detailedMember.bio}</p>
               </div>
             </div>
           )}
