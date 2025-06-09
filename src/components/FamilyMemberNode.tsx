@@ -66,6 +66,9 @@ const FamilyMemberNodeInternal: React.FC<FamilyMemberNodeProps> = ({ data }) => 
     }
   }, [member.id, onToggleCollapse]);
 
+  // Diagnostic log
+  console.log(`Node: ${member.name}, hasChildren: ${hasChildren}, onToggleCollapse defined: ${!!onToggleCollapse}`);
+
   return (
     <div className="family-member-node">
       <Handle
