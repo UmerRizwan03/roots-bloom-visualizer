@@ -15,10 +15,15 @@ const parsePartnerString = (partnersStr: string | null | undefined): string[] =>
   // Attempt JSON.parse
   try {
     const parsed = JSON.parse(partnersStr);
-    if (Array.isArray(parsed) && parsed.every(item => typeof item === 'string')) {
-      return parsed.map(name => name.trim()).filter(name => name.length > 0);
+    if (Array.isArray(parsed)) {
+      // Filter for strings first, then map and filter by length
+      return parsed
+        .filter(item => typeof item === 'string')
+        .map(name => name.trim())
+        .filter(name => name.length > 0);
     }
-    console.warn("Partners string parsed as JSON but is not an array of strings:", parsed);
+    // If JSON.parse succeeds but it's not an array (e.g., a single string, number, or object), it's an unexpected JSON format.
+    console.warn("Partners string parsed as JSON but is not an array:", parsed);
   } catch (e) {
     // console.warn("JSON.parse failed for partners string (will try pg-like):", partnersStr, e);
   }
