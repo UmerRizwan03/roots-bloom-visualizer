@@ -13,23 +13,10 @@ const MemberModal: React.FC<MemberModalProps> = ({ member: initialMember, onClos
   const [detailedMember, setDetailedMember] = useState<FamilyMember | null>(null);
   const [parentNames, setParentNames] = useState<string[]>([]);
   const [childrenNames, setChildrenNames] = useState<string[]>([]);
-  const [spouseName, setSpouseName] = useState<string | null>(null);
-  const [partnerNames, setPartnerNames] = useState<string[]>([]);
+  // Removed spouseName and partnerNames state variables
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  const fetchNameById = async (id: string): Promise<string | null> => {
-    if (!id) return null;
-    const { data, error } = await supabase
-      .from('family_members')
-      .select('name')
-      .eq('id', id)
-      .single();
-    if (error) {
-      console.error(`Error fetching name for ID ${id}:`, error);
-      return null;
-    }
-    return data?.name || null;
-  };
+  // Removed fetchNameById as it was only for spouse
 
   const fetchNamesByIds = async (ids: string[]): Promise<string[]> => {
     if (!ids || ids.length === 0) return [];
@@ -58,8 +45,7 @@ const MemberModal: React.FC<MemberModalProps> = ({ member: initialMember, onClos
       setDetailedMember(null); // Clear previous member details
       setParentNames([]);
       setChildrenNames([]);
-      setSpouseName(null);
-      setPartnerNames([]);
+      // Removed setSpouseName(null) and setPartnerNames([])
 
       try {
         // Fetch main member details
@@ -91,17 +77,8 @@ const MemberModal: React.FC<MemberModalProps> = ({ member: initialMember, onClos
             setChildrenNames(fetchedChildrenNames);
           }
 
-          // Fetch spouse
-          if (memberData.spouse) {
-            const fetchedSpouseName = await fetchNameById(memberData.spouse);
-            setSpouseName(fetchedSpouseName);
-          }
-
-          // Fetch partners
-          if (memberData.partners && memberData.partners.length > 0) {
-            const fetchedPartnerNames = await fetchNamesByIds(memberData.partners);
-            setPartnerNames(fetchedPartnerNames);
-          }
+          // Spouse and old partners array fetching removed
+          // The new memberData.partners is a string and needs no special fetching here
         }
       } catch (error) {
         console.error('Error in fetchModalData:', error);
@@ -161,6 +138,11 @@ const MemberModal: React.FC<MemberModalProps> = ({ member: initialMember, onClos
       </div>
     );
   }
+
+  // Process detailedMember.partners string
+  const currentPartnerNames = detailedMember?.partners && typeof detailedMember.partners === 'string'
+    ? detailedMember.partners.split(',').map(name => name.trim()).filter(name => name)
+    : [];
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[55] p-4"> {/* Changed z-50 to z-[55] */}
@@ -259,26 +241,15 @@ const MemberModal: React.FC<MemberModalProps> = ({ member: initialMember, onClos
 
             {/* Family Relationships */}
             <div className="space-y-4">
-              {spouseName && (
+              {/* New Partner(s) Display */}
+              {currentPartnerNames.length > 0 && (
                 <div>
                   <div className="flex items-center space-x-2 text-gray-600 mb-2">
                     <Heart className="h-5 w-5" />
-                    <p className="font-medium">Spouse</p>
-                  </div>
-                  <div className="bg-gray-50 rounded-lg p-3">
-                    <p className="font-medium">{spouseName}</p>
-                  </div>
-                </div>
-              )}
-
-              {partnerNames.length > 0 && (
-                <div>
-                  <div className="flex items-center space-x-2 text-gray-600 mb-2">
-                    <Heart className="h-5 w-5" /> {/* Consider a different icon for partners if desired */}
-                    <p className="font-medium">Partners</p>
+                    <p className="font-medium">Partner(s)</p>
                   </div>
                   <div className="space-y-2">
-                    {partnerNames.map((name, index) => (
+                    {currentPartnerNames.map((name, index) => (
                       <div key={index} className="bg-gray-50 rounded-lg p-3">
                         <p className="font-medium">{name}</p>
                       </div>

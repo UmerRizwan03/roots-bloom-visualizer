@@ -12,8 +12,10 @@ export interface FamilyMember {
   generation: number;
   parents?: string[];
   children?: string[];
-  spouse?: string;
-  partners?: string[]; // For multiple partners
+  // spouse?: string; // Replaced by new partners field
+  // partners?: string[]; // Replaced by new partners field, now a comma-separated string
+  // Comma-separated string of partner names
+  partners?: string;
   bloodType?: string;
   mobileNumber?: string;
   email?: string;
