@@ -327,7 +327,7 @@ const Index = () => {
         <Sheet open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
           <SheetContent side="right" className="w-full sm:w-[400px] p-0 overflow-y-auto">
             {/* New layout for all sidebar content */}
-            <div className="flex flex-col h-full p-4 space-y-4 md:hidden"> {/* md:hidden as safeguard */}
+            <div className="flex flex-col h-full p-4 space-y-4"> {/* md:hidden as safeguard */}
               {/* Mobile Navigation Links */}
               <nav className="flex flex-col space-y-1">
                 {mobileNavLinks.map(link => (
