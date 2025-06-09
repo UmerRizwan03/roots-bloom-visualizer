@@ -87,7 +87,7 @@ const FamilyMemberNodeInternal: React.FC<FamilyMemberNodeProps> = ({ data }) => 
           ${!isDimmed && focusedRelationType === 'self' ? 'border-blue-500 ring-4 ring-blue-500 shadow-blue-300/50' :
             !isDimmed && focusedRelationType === 'parent' ? 'border-sky-400' :
             !isDimmed && focusedRelationType === 'spouse' ? 'border-pink-400' :
-            !isDimmed && focusedRelationType === 'child' ? 'border-green-400' :
+            !isDimmed && (focusedRelationType === 'child' || focusedRelationType === 'descendant') ? 'border-green-400' :
             !isDimmed && focusedRelationType === 'sibling' ? 'border-purple-400' :
             'border-slate-200' // Default border
           }

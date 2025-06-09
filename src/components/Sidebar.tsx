@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { User as UserIcon, PanelLeftClose, PanelLeftOpen } from 'lucide-react'; // Added PanelLeft icons
+import Breadcrumbs from './Breadcrumbs'; // Import Breadcrumbs
 
 interface SidebarProps {
   members: FamilyMember[];
@@ -39,7 +40,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   onToggleSidebar, // Added onToggleSidebar
 }) => {
   const fuse = useMemo(() => new Fuse(members, {
-    keys: ['name', 'birthDate'],
+    keys: ['name', 'birthDate', 'occupation', 'mobileNumber'], // Added occupation and mobileNumber
     includeScore: true,
     threshold: 0.4, // Adjust as needed
   }), [members]);
@@ -60,6 +61,17 @@ const Sidebar: React.FC<SidebarProps> = ({
             {isSidebarOpen ? <PanelLeftClose className="h-5 w-5" /> : <PanelLeftOpen className="h-5 w-5" />}
           </Button>
         </div>
+
+        {/* Breadcrumbs */}
+        {focusedMemberId && (
+          <Breadcrumbs
+            focusedMemberId={focusedMemberId}
+            members={members}
+            onSelectMember={onMemberSelect} // Assuming onMemberSelect can handle focusing a member
+            className="mb-2 pt-1" // Add some margin
+          />
+        )}
+
          <div className="flex justify-between items-center mb-2"> {/* Added for Reset Focus */}
           <div className="text-sm font-medium text-muted-foreground">Focus Tools</div>
           {focusedMemberId && (
@@ -69,16 +81,14 @@ const Sidebar: React.FC<SidebarProps> = ({
           )}
         </div>
         {/* Focus and Search Indicators */}
-        <div className="mt-2 space-y-1 text-xs text-muted-foreground">
-          {focusedMemberId && (
-            <p className="text-blue-600 dark:text-blue-400">Focus Mode Active</p>
-          )}
+        {/* "Focus Mode Active" text is now implicitly covered by Breadcrumbs when focusedMemberId is set */}
+        <div className="mt-1 space-y-1 text-xs text-muted-foreground">
           {searchQuery && (
             <p className="text-amber-600 dark:text-amber-400">Search Active: "{searchQuery}"</p>
           )}
         </div>
         {/* View Mode Controls */}
-        <div className="space-y-2 pt-2"> {/* Added pt-2 */}
+        <div className="space-y-2 pt-2">
           <div className="text-sm font-medium">View Mode</div>
           <div className="flex space-x-1">
             <Button onClick={() => setViewMode('FullTree')} variant={viewMode === 'FullTree' ? 'secondary' : 'outline'} size="sm" className="flex-1">Full Tree</Button>

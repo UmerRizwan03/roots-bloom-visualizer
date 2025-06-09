@@ -190,26 +190,38 @@ export function layoutFamilyTree(
           focusedRelationType = 'child';
         } else if (member.id === focusedMemberDetails.spouse || focusedMemberDetails.id === member.spouse) {
           focusedRelationType = 'spouse';
-        } else if (viewMode !== 'LineageView' && // Avoid sibling coloring in lineage view for simplicity unless direct
+        } else if (viewMode !== 'LineageView' &&
                    focusedMemberDetails.parents && member.parents?.some(pId => focusedMemberDetails.parents!.includes(pId))) {
+           // Sibling logic (ensure it's not parent, child, spouse of focused)
            if (member.id !== focusedMemberId &&
                !focusedMemberDetails.parents?.includes(member.id) &&
-               !member.parents?.includes(focusedMemberId) &&
+               !(member.parents?.includes(focusedMemberId)) &&
                member.id !== focusedMemberDetails.spouse &&
                focusedMemberDetails.id !== member.spouse) {
             focusedRelationType = 'sibling';
            }
+        } else if (viewMode !== 'LineageView' && getDescendants(focusedMemberId, allMembers).some(d => d.id === member.id && d.id !== focusedMemberId)) {
+          // Check for descendant if not already covered and not in LineageView (which handles it separately)
+          // Ensure it's not the focused member itself (already 'self')
+          // Ensure it's not a direct child (already 'child')
+          // Ensure it's not a parent, spouse, or sibling (already covered by previous conditions)
+          // This block will catch grandchildren and further descendants for FullTree/PersonView.
+          if (member.id !== focusedMemberId &&
+              !(member.parents?.includes(focusedMemberId)) &&
+              !focusedMemberDetails.parents?.includes(member.id) &&
+              member.id !== focusedMemberDetails.spouse &&
+              focusedMemberDetails.id !== member.spouse &&
+              !(focusedMemberDetails.parents && member.parents?.some(pId => focusedMemberDetails.parents!.includes(pId)))) {
+            focusedRelationType = 'descendant';
+          }
         } else if (viewMode === 'LineageView') {
             if (lineageDirection === 'Ancestors' && member.id !== focusedMemberId && getAncestors(focusedMemberId, allMembers).some(a => a.id === member.id)) {
-                 // Check if 'member' is an ancestor of 'focusedMemberDetails'
-                 // This requires ensuring 'member' is in the path from focusedMemberDetails upwards.
-                 // The getAncestors function includes the start node.
                  const ancestorsOfFocused = getAncestors(focusedMemberId, allMembers);
                  if (ancestorsOfFocused.some(a => a.id === member.id && member.id !== focusedMemberId)) {
                     focusedRelationType = 'ancestor';
                  }
             } else if (lineageDirection === 'Descendants' && member.id !== focusedMemberId && getDescendants(focusedMemberId, allMembers).some(d => d.id === member.id)) {
-                 focusedRelationType = 'descendant';
+                 focusedRelationType = 'descendant'; // This is specific to LineageView, but the new block above handles other views.
             }
         }
       }
@@ -226,9 +238,9 @@ export function layoutFamilyTree(
 
     // If a node is collapsed, its children should not be in displayedMembers for FullTree.
     // For Person/Lineage, this is implicitly handled by the initial filtering.
-    // However, the `hasChildren` prop for the button should reflect if there *are* children that *could* be shown.
-    // So, check allMembers for potential children, but then the button action might be complex if not FullTree.
-    // Let's keep current `hasVisibleChildren` logic for now, which refers to currently displayed ones.
+    // The `hasChildren` prop for the button should reflect if there *are* children in allMembers,
+    // not just currently visible ones.
+    const hasAnyChildren = allMembers.some(child => child.parents?.includes(member.id));
     
     return {
         id: member.id,
@@ -245,7 +257,7 @@ export function layoutFamilyTree(
             focusedRelationType,
             isCollapsed: !!collapsedStates[member.id],
             onToggleCollapse: callbacks.onToggleCollapse,
-            hasChildren: hasVisibleChildren,
+            hasChildren: hasAnyChildren, // Use the new logic here
             canEdit: canEdit,
         },
         sourcePosition: Position.Bottom,
