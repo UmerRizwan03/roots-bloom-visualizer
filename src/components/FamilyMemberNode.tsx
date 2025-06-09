@@ -1,8 +1,9 @@
 
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback, useMemo, useEffect, useState } from 'react';
 import { Handle, Position } from '@xyflow/react';
-import { User, Calendar, Briefcase, Edit, Trash2, PlusCircle, MinusCircle, Phone } from 'lucide-react';
+import { User, Users, Heart, Calendar, Briefcase, Edit, Trash2, PlusCircle, MinusCircle, Phone } from 'lucide-react';
 import { FamilyMember } from '../types/family';
+import { supabase } from '../lib/supabaseClient';
 
 interface FamilyMemberNodeProps {
   data: {
@@ -19,16 +20,70 @@ interface FamilyMemberNodeProps {
 }
 
 const FamilyMemberNodeInternal: React.FC<FamilyMemberNodeProps> = ({ data }) => {
-  const { 
-    member, 
-    onSelect, 
-    onEdit, 
-    onDelete, 
+  const {
+    member,
+    onSelect,
+    onEdit,
+    onDelete,
     isHighlighted,
     isCollapsed,
     onToggleCollapse,
-    hasChildren 
+    hasChildren
   } = data;
+
+  const [parentNames, setParentNames] = useState<string | null>(null);
+  const [spousePartnerName, setSpousePartnerName] = useState<string | null>(null);
+
+  const fetchMemberName = async (id: string): Promise<string | null> => {
+    const { data, error } = await supabase
+      .from('family_members')
+      .select('name')
+      .eq('id', id)
+      .single();
+    if (error) {
+      console.error('Error fetching member name:', error);
+      return null;
+    }
+    return data?.name || null;
+  };
+
+  useEffect(() => {
+    if (member.parents && member.parents.length > 0) {
+      const fetchParentNames = async () => {
+        const names = await Promise.all(member.parents.map(fetchMemberName));
+        const validNames = names.filter(name => name !== null) as string[];
+        if (validNames.length > 0) {
+          setParentNames(validNames.join(' & '));
+        } else {
+          setParentNames(null);
+        }
+      };
+      fetchParentNames();
+    } else {
+      setParentNames(null);
+    }
+  }, [member.parents]);
+
+  useEffect(() => {
+    const fetchSpouseOrPartnerNames = async () => {
+      let names: string[] = [];
+      if (member.spouse) {
+        const spouseName = await fetchMemberName(member.spouse);
+        if (spouseName) names.push(spouseName);
+      } else if (member.partners && member.partners.length > 0) {
+        const partnerNames = await Promise.all(member.partners.map(fetchMemberName));
+        names = partnerNames.filter(name => name !== null) as string[];
+      }
+
+      if (names.length > 0) {
+        setSpousePartnerName(names.join(', '));
+      } else {
+        setSpousePartnerName(null);
+      }
+    };
+
+    fetchSpouseOrPartnerNames();
+  }, [member.spouse, member.partners]);
 
   const handleClick = useCallback(() => {
     onSelect(member);
@@ -167,6 +222,38 @@ const FamilyMemberNodeInternal: React.FC<FamilyMemberNodeProps> = ({ data }) => 
                 <span>&nbsp;</span>
               )}
             </div>
+
+            {/* Parents Display */}
+            <div className="flex items-center text-xs text-slate-600 bg-slate-50 rounded-lg px-2 py-1 min-h-[2rem]">
+              {parentNames ? (
+                <>
+                  <Users className="w-3 h-3 mr-2 text-slate-400 flex-shrink-0" />
+                  <span className="truncate">{parentNames}</span>
+                </>
+              ) : (
+                <span>&nbsp;</span>
+              )}
+            </div>
+
+            {/* Spouse/Partner Display */}
+            <div className="flex items-center text-xs text-slate-600 bg-slate-50 rounded-lg px-2 py-1 min-h-[2rem]">
+              {spousePartnerName ? (
+                <>
+                  <Heart className="w-3 h-3 mr-2 text-slate-400 flex-shrink-0" />
+                  <span className="truncate">{spousePartnerName}</span>
+                </>
+              ) : (
+                <span>&nbsp;</span>
+              )}
+            </div>
+
+            {/* Co-parent Display */}
+            {member.coParentName && (
+              <div className="flex items-center text-xs text-slate-600 bg-slate-50 rounded-lg px-2 py-1 min-h-[2rem]">
+                <Users className="w-3 h-3 mr-2 text-slate-400 flex-shrink-0" />
+                <span className="truncate" title={member.coParentName}>Co-parent: {member.coParentName}</span>
+              </div>
+            )}
           </div>
         </div>
 
