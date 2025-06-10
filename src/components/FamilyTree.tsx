@@ -31,6 +31,7 @@ interface FamilyTreeProps {
   canEdit: boolean;
   viewMode: 'FullTree' | 'PersonView' | 'LineageView'; // Added viewMode
   lineageDirection: 'Ancestors' | 'Descendants'; // Added lineageDirection
+  onNodeClick: (member: FamilyMember) => void; // Added onNodeClick for modal
 }
 
 const nodeTypes = {
@@ -57,7 +58,8 @@ const FamilyTree: React.FC<FamilyTreeProps> = ({
   hoveredMemberId,
   canEdit,
   viewMode, // Added viewMode
-  lineageDirection // Added lineageDirection
+  lineageDirection, // Added lineageDirection
+  onNodeClick // Added onNodeClick
 }) => {
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
@@ -106,7 +108,8 @@ const FamilyTree: React.FC<FamilyTreeProps> = ({
     onEdit: onSetEditingMember,
     onDelete: onDeleteMember,
     onToggleCollapse: handleToggleCollapse,
-  }), [onMemberSelect, onSetEditingMember, onDeleteMember, handleToggleCollapse]);
+    onNodeClick: onNodeClick, // Pass onNodeClick
+  }), [onMemberSelect, onSetEditingMember, onDeleteMember, handleToggleCollapse, onNodeClick]);
 
   // Calculate nodes and edges using the external layout function, memoized
   const { nodes: calculatedNodes, edges: calculatedEdges } = useMemo(() => {
@@ -121,7 +124,8 @@ const FamilyTree: React.FC<FamilyTreeProps> = ({
       flowViewportWidth,
       hoveredMemberId,
       viewMode, // Pass viewMode
-      lineageDirection // Pass lineageDirection
+      lineageDirection, // Pass lineageDirection
+      // onNodeClick is part of memoizedCallbacks, so no need to list it again here
     );
   }, [members, searchQuery, collapsedStates, focusedMemberId, hoveredMemberId, memoizedCallbacks, layoutConfig, canEdit, flowViewportWidth, viewMode, lineageDirection]);
 

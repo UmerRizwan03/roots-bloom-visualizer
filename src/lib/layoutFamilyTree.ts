@@ -7,6 +7,7 @@ export interface LayoutCallbacks {
   onEdit: (member: FamilyMember) => void;
   onDelete: (memberId: string) => void;
   onToggleCollapse: (memberId: string) => void;
+  onNodeClick: (member: FamilyMember) => void; // Added onNodeClick
 }
 
 export interface LayoutConfig {
@@ -47,9 +48,46 @@ export function layoutFamilyTree(
     const focusedMember = allMembers.find(m => m.id === focusedMemberId);
     if (focusedMember) {
       const personViewIds = new Set<string>();
-      personViewIds.add(focusedMember.id);
+      personViewIds.add(focusedMember.id); // Add focused member
+
+      // Add parents
       focusedMember.parents?.forEach(id => personViewIds.add(id));
-      if (focusedMember.spouse) personViewIds.add(focusedMember.spouse);
+
+      // Add spouses/partners (incorporating JSON parsing and legacy spouse field)
+      // 1. Direct partners/spouse of the focused member
+      if (focusedMember.partners) {
+        try {
+          const partnerIds = JSON.parse(focusedMember.partners) as string[];
+          if (Array.isArray(partnerIds)) {
+            partnerIds.forEach(pId => personViewIds.add(pId));
+          }
+        } catch (e) {
+          console.warn(`Failed to parse partners for focusedMember ${focusedMember.id} in PersonView: ${focusedMember.partners}`, e);
+        }
+      }
+      if (focusedMember.spouse) { // Legacy spouse field
+        personViewIds.add(focusedMember.spouse);
+      }
+
+      // 2. Members who list the focused member as a partner/spouse (reverse lookup)
+      allMembers.forEach(member => {
+        if (member.id === focusedMember.id) return; // Skip self
+
+        if (member.partners) {
+          try {
+            const memberPartnerIds = JSON.parse(member.partners) as string[];
+            if (Array.isArray(memberPartnerIds) && memberPartnerIds.includes(focusedMember.id)) {
+              personViewIds.add(member.id);
+            }
+           } catch (e) { // Corrected syntax: removed comma, added braces
+            console.warn(`Failed to parse partners for member ${member.id} in PersonView reverse lookup: ${member.partners}`, e);
+          }
+        }
+        if (member.spouse === focusedMember.id) { // Legacy spouse field (reverse)
+          personViewIds.add(member.id);
+        }
+      });
+
       // Add children
       allMembers.forEach(m => {
         if (m.parents?.includes(focusedMember.id)) personViewIds.add(m.id);
@@ -93,22 +131,59 @@ export function layoutFamilyTree(
       displayedMembers = allMembers.map(m => ({ ...m, generation: m.generation || 1 }));
     }
   } else { // FullTree or fallback
-    // Step 1: Determine initialSet (relevant for FullTree dimming if focused)
-    const initialSetForFullTree: FamilyMember[] = focusedMemberId && allMembers.find(m => m.id === focusedMemberId)
-      ? getDescendants(focusedMemberId, allMembers, 1)
-      : allMembers.map(m => ({ ...m, generation: m.generation || 1 }));
-    const membersMapFromInitialSet = new Map(initialSetForFullTree.map(m => [m.id, m]));
+    // Step 1: In FullTree mode, the collapse filtering should consider all members.
+    // The `nonDimmedMemberIds` set will handle the visual focus distinction.
+    const membersForCollapseFiltering = allMembers.map(m => ({ ...m, generation: m.generation || 1 }));
+    // const membersMapFromInitialSet = new Map(initialSetForFullTree.map(m => [m.id, m])); // Not strictly needed if using allMembers
 
-    // Expanded focus scope for FullTree dimming
-    if (focusedMemberId) {
+    // Expanded focus scope for FullTree dimming (this part is for visual styling, not filtering)
+    if (focusedMemberId && viewMode === 'FullTree') { // Ensure this applies only in FullTree with focus
       const focusedMember = allMembers.find(m => m.id === focusedMemberId);
       if (focusedMember) {
         nonDimmedMemberIds.add(focusedMember.id);
+        // Parents
         focusedMember.parents?.forEach(pId => nonDimmedMemberIds.add(pId));
-        if (focusedMember.spouse) {
-          nonDimmedMemberIds.add(focusedMember.spouse);
-          allMembers.forEach(m => { if (m.spouse === focusedMember.id) nonDimmedMemberIds.add(m.id); });
+
+        // Spouses/Partners
+        // 1. Parse focusedMember.partners
+        if (focusedMember.partners) {
+          try {
+            const partnerIds = JSON.parse(focusedMember.partners) as string[];
+            if (Array.isArray(partnerIds)) {
+              partnerIds.forEach(pId => nonDimmedMemberIds.add(pId));
+            }
+          } catch (e) {
+            console.warn(`Failed to parse partners for focusedMember ${focusedMember.id}: ${focusedMember.partners}`, e);
+          }
         }
+
+        // 2. Check other members who might list focusedMember as a partner
+        // Also handle legacy spouse field for completeness, though partners is preferred
+        allMembers.forEach(member => {
+          if (member.id === focusedMember.id) return; // Skip self
+
+          // Check legacy spouse field
+          if (member.spouse === focusedMember.id) {
+            nonDimmedMemberIds.add(member.id);
+          }
+          if (focusedMember.spouse === member.id) { // Ensure two-way check for spouse
+            nonDimmedMemberIds.add(member.id);
+          }
+
+          // Check new partners field
+          if (member.partners) {
+            try {
+              const memberPartnerIds = JSON.parse(member.partners) as string[];
+              if (Array.isArray(memberPartnerIds) && memberPartnerIds.includes(focusedMember.id)) {
+                nonDimmedMemberIds.add(member.id);
+              }
+            } catch (e) {
+              console.warn(`Failed to parse partners for member ${member.id}: ${member.partners}`, e);
+            }
+          }
+        });
+
+        // Siblings
         if (focusedMember.parents) {
           allMembers.forEach(m => {
             if (m.id !== focusedMember.id && m.parents?.some(pId => focusedMember.parents!.includes(pId))) {
@@ -124,41 +199,70 @@ export function layoutFamilyTree(
     // Step 2: Filter by collapsedStates (applies mainly to FullTree)
     let membersAfterCollapseFilter: FamilyMember[];
     const hiddenDueToCollapseIds = new Set<string>();
-    if (focusedMemberId && viewMode === 'FullTree') { // Collapse logic for focused FullTree
-      for (const member of initialSetForFullTree) {
-        if (collapsedStates[member.id] && member.id !== focusedMemberId) {
-          const childrenOfCollapsed = initialSetForFullTree.filter(m => m.parents?.includes(member.id));
-          for (const child of childrenOfCollapsed) {
-            if (!hiddenDueToCollapseIds.has(child.id)) {
-              getDescendants(child.id, initialSetForFullTree, child.generation || 1)
-                .forEach(desc => hiddenDueToCollapseIds.add(desc.id));
-            }
-          }
-        }
-      }
-      membersAfterCollapseFilter = initialSetForFullTree.filter(m => !hiddenDueToCollapseIds.has(m.id));
-      // Ensure focused member is always visible in FullTree if it was in initial set.
-      if (!membersAfterCollapseFilter.some(m => m.id === focusedMemberId) && initialSetForFullTree.some(m => m.id === focusedMemberId)) {
-        const fmData = initialSetForFullTree.find(m => m.id === focusedMemberId);
-        if (fmData) membersAfterCollapseFilter.unshift(fmData);
-      }
-    } else if (viewMode === 'FullTree') { // Collapse logic for non-focused FullTree
+
+    // Unified collapse logic for FullTree (focused or not focused)
+    // This logic determines which nodes are fundamentally hidden due to collapse,
+    // not just visually dimmed.
+    if (viewMode === 'FullTree') {
       const memberVisibility = new Map<string, boolean>();
-      const sortedAllMembers = [...allMembers.map(m => ({ ...m, generation: m.generation || 1 }))]
-                                 .sort((a, b) => (a.generation || 1) - (b.generation || 1));
-      for (const member of sortedAllMembers) {
-        let isVisible = true;
+      // Iterate based on generation to ensure parent visibility is determined first
+      const sortedMembersForCollapse = [...membersForCollapseFiltering].sort((a, b) => (a.generation || 1) - (b.generation || 1));
+
+      for (const member of sortedMembersForCollapse) {
+        let isActuallyVisible = true; // Assume visible unless a parent makes it not so
         if (member.parents && member.parents.length > 0) {
           for (const parentId of member.parents) {
-            if (memberVisibility.get(parentId) === false || collapsedStates[parentId]) {
-              isVisible = false;
+            const parentIsVisible = memberVisibility.get(parentId);
+            // If any parent is definitively marked as not visible (false), this child is not visible.
+            // If a parent is collapsed (and it's not the focused member itself, if applicable), this child is not visible.
+            if (parentIsVisible === false ||
+                (collapsedStates[parentId] && (!focusedMemberId || parentId !== focusedMemberId))) {
+              isActuallyVisible = false;
               break;
             }
           }
         }
-        memberVisibility.set(member.id, isVisible);
+        memberVisibility.set(member.id, isActuallyVisible);
       }
-      membersAfterCollapseFilter = allMembers.filter(m => memberVisibility.get(m.id) !== false);
+      membersAfterCollapseFilter = membersForCollapseFiltering.filter(m => memberVisibility.get(m.id) !== false);
+
+      // Special case: If a focused member itself is marked as collapsed, its direct children should still be hidden.
+      // The above loop handles hiding descendants of *other* collapsed nodes.
+      // If the focused node itself is collapsed, we need to ensure its children are not in membersAfterCollapseFilter.
+      // However, the current logic already implicitly handles this: if focusedMemberId is collapsed, its children's
+      // parent (the focusedMemberId) will satisfy `collapsedStates[parentId]`, making them not visible,
+      // UNLESS `parentId === focusedMemberId` is true in the condition `collapsedStates[parentId] && (!focusedMemberId || parentId !== focusedMemberId)`.
+      // This means if the focused node is collapsed, children are hidden unless it's the focused node. This seems a bit contradictory.
+      // Let's refine: If a node is collapsed, its children are hidden, period. The focus only affects dimming.
+      // The `memberVisibility.get(parentId) === false` part of the check handles propagation of invisibility.
+      // The `collapsedStates[parentId]` part handles direct collapse.
+
+      // The condition `(!focusedMemberId || parentId !== focusedMemberId)` in the loop
+      // was intended to prevent the focused member's children from being hidden if the focused member itself was collapsed.
+      // This might be counter-intuitive. If a focused member is collapsed, its children should probably also be hidden.
+      // Let's simplify the condition inside the loop:
+      // if (parentIsVisible === false || collapsedStates[parentId])
+      // This means if a parent is collapsed, its children are hidden, regardless of focus.
+      // The focused member itself will always be in `displayedMembers` if `focusedMemberId` is set, due to other logic paths,
+      // but its children's visibility will correctly depend on its collapsed state.
+      // Re-running the visibility check with simpler logic for clarity:
+      memberVisibility.clear(); // Reset for the refined logic
+      for (const member of sortedMembersForCollapse) {
+        let isActuallyVisible = true;
+        if (member.parents && member.parents.length > 0) {
+          for (const parentId of member.parents) {
+            const parentIsVisible = memberVisibility.get(parentId);
+            if (parentIsVisible === false || collapsedStates[parentId]) {
+              isActuallyVisible = false;
+              break;
+            }
+          }
+        }
+        memberVisibility.set(member.id, isActuallyVisible);
+      }
+      membersAfterCollapseFilter = membersForCollapseFiltering.filter(m => memberVisibility.get(m.id) !== false);
+
+
     } else { // PersonView or LineageView - collapse state not primary filter here
       membersAfterCollapseFilter = displayedMembers; // Use already filtered members for these views
     }
@@ -174,12 +278,15 @@ export function layoutFamilyTree(
     const isHoverHighlighted = !!hoveredMemberId && member.id === hoveredMemberId;
 
     let isDimmed = false;
+    // Dimming logic for FullTree mode with a focused member
     if (viewMode === 'FullTree' && focusedMemberId) {
       isDimmed = !nonDimmedMemberIds.has(member.id);
-    } // In Person/Lineage view, dimming is implicitly handled by selection, or not applied.
+    }
+    // For PersonView or LineageView, dimming is not applied here; all displayed nodes are considered "in focus".
 
     let focusedRelationType: string | null = null;
-    if (focusedMemberId && (viewMode === 'FullTree' ? !isDimmed : nonDimmedMemberIds.has(member.id))) {
+    // Relation type determination for styling, only if the node isn't dimmed (or not in a view mode that uses dimming)
+    if (focusedMemberId && (!isDimmed || viewMode !== 'FullTree')) {
       const focusedMemberDetails = allMembers.find(m => m.id === focusedMemberId);
       if (focusedMemberDetails) {
         if (member.id === focusedMemberId) {
@@ -259,6 +366,7 @@ export function layoutFamilyTree(
             onToggleCollapse: callbacks.onToggleCollapse,
             hasChildren: hasAnyChildren, // Use the new logic here
             canEdit: canEdit,
+            onNodeClick: callbacks.onNodeClick, // Pass onNodeClick
         },
         sourcePosition: Position.Bottom,
         targetPosition: Position.Top,
@@ -299,21 +407,23 @@ export function layoutFamilyTree(
         if (node && !processedGen1NodeIds.has(node.id)) {
           node.position.x = currentX;
           processedGen1NodeIds.add(node.id);
-          nodeXPositionsGlobal.set(node.id, currentX); // Update global X immediately
-          currentX += nodeWidth + memberSpacing;
+          nodeXPositionsGlobal.set(node.id, node.position.x); // Store actual X for the primary member of this unit
+
+          let endOfThisUnitX = node.position.x + nodeWidth; // End of the primary member
 
           if (memberData.spouse && memberData.spouse !== memberData.id) {
             const spouseMemberData = displayedMembers.find(m => m.id === memberData.spouse && (m.generation || 1) === 1);
             if (spouseMemberData) {
               const spouseNode = nodesInCurrentGen.find(n => n.id === spouseMemberData.id);
               if (spouseNode && !processedGen1NodeIds.has(spouseNode.id)) {
-                spouseNode.position.x = node.position.x + memberSpacing;
+                spouseNode.position.x = endOfThisUnitX + siblingSpacing; // Spouse starts after primary member + siblingSpacing
                 processedGen1NodeIds.add(spouseNode.id);
-                nodeXPositionsGlobal.set(spouseNode.id, spouseNode.position.x); // Update global X
-                currentX = spouseNode.position.x + nodeWidth + memberSpacing;
+                nodeXPositionsGlobal.set(spouseNode.id, spouseNode.position.x); // Store actual X for spouse
+                endOfThisUnitX = spouseNode.position.x + nodeWidth; // Update end of unit to be end of spouse
               }
             }
           }
+          currentX = endOfThisUnitX + memberSpacing; // Set currentX for the start of the *next* unit
         }
       });
 

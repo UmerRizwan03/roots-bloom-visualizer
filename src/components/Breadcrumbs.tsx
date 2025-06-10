@@ -47,9 +47,13 @@ const Breadcrumbs: React.FC<BreadcrumbsProps> = ({
           </button>
         </React.Fragment>
       ))}
-      {ancestorPath.length === 0 && focusedMember && ( // Case where focused member has no known parents in data
+      {/* The following fallback is likely unreachable if focusedMember is valid,
+         as getAncestors includes the focusedMember itself.
+         If ancestorPath is empty, it implies focusedMember was not found,
+         which is handled by the early return. */}
+      {/* {ancestorPath.length === 0 && focusedMember && (
          <span className="font-semibold text-primary">{focusedMember.name}</span>
-      )}
+      )} */}
     </nav>
   );
 };
