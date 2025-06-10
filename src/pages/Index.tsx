@@ -13,9 +13,8 @@ import ThemeToggleButton from '../components/ThemeToggleButton';
 import Sidebar from '../components/Sidebar';
 import FamilyTree from '../components/FamilyTree';
 import MemberModal from '../components/MemberModal';
-import NodeDetailPanel from '@/components/NodeDetailPanel'; // Added
 import { FamilyMember } from '../types/family';
-import { supabase } from '../lib/supabaseClient'; 
+import { supabase } from '../lib/supabaseClient';
 import AddMemberForm from '../components/AddMemberForm';
 import EditMemberForm from '../components/EditMemberForm';
 import { v4 as uuidv4 } from 'uuid';
@@ -58,22 +57,14 @@ const Index = () => {
   const [viewMode, setViewMode] = useState<ViewMode>('FullTree');
   const [lineageDirection, setLineageDirection] = useState<LineageDirection>('Descendants');
 
-  // State for the new node click modal
-  const [selectedMemberForNodeModal, setSelectedMemberForNodeModal] = useState<FamilyMember | null>(null); // Will be unused by node click
-  const [isNodeModalOpen, setIsNodeModalOpen] = useState(false); // Will be unused by node click
-
   // State variables for zoom functions
   const [reactFlowZoomIn, setReactFlowZoomIn] = useState<(() => void) | null>(null);
   const [reactFlowZoomOut, setReactFlowZoomOut] = useState<(() => void) | null>(null);
 
-  // State variables for NodeDetailPanel
-  const [selectedMemberForPanel, setSelectedMemberForPanel] = useState<FamilyMember | null>(null);
-  const [isNodeDetailPanelOpen, setIsNodeDetailPanelOpen] = useState<boolean>(false);
-
   const handleAddChild = useCallback((parentMember: FamilyMember) => {
     console.log('Add Child requested for parent:', parentMember.name);
-    setEditingMember(null); 
-    setIsAddMemberModalOpen(true); 
+    setEditingMember(null);
+    setIsAddMemberModalOpen(true);
   }, [setIsAddMemberModalOpen]);
 
   const fetchMembers = useCallback(async () => {
@@ -222,11 +213,9 @@ const Index = () => {
   }, [handleFocusAndShowDetails]);
 
   const handleResetFocus = useCallback(() => {
-    handleFocusAndShowDetails(null); 
+    handleFocusAndShowDetails(null); // This already sets detailedMember to null, closing MemberModal
     setViewMode('FullTree'); 
     setSearchQuery(""); 
-    setIsNodeDetailPanelOpen(false); // Add this line
-    setSelectedMemberForPanel(null); // Add this line
   }, [handleFocusAndShowDetails, setViewMode, setSearchQuery]);
 
   const handleSearchQueryChange = useCallback((query: string) => {
@@ -239,11 +228,15 @@ const Index = () => {
     }
   }, []);
 
-  // Updated Handler for node click to open NodeDetailPanel
+  // New version to open MemberModal (via detailedMember state):
   const handleNodeClick = useCallback((member: FamilyMember) => {
-    setSelectedMemberForPanel(member);
-    setIsNodeDetailPanelOpen(true);
-  }, []);
+    setDetailedMember(member); // This will trigger the MemberModal
+    // Ensure other modals/panels are not triggered by this specific action
+    // setIsNodeDetailPanelOpen(false); // State will be removed
+    // setSelectedMemberForPanel(null); // State will be removed
+    // setIsNodeModalOpen(false); // State will be removed
+    // setSelectedMemberForNodeModal(null); // State will be removed
+  }, [setDetailedMember]);
 
   const toggleDrawer = useCallback(() => {
     setIsDrawerOpen(prev => !prev);
@@ -515,31 +508,6 @@ const Index = () => {
         </Dialog>
       )}
 
-      {/* Old Dialog Modal (will no longer be opened by node click) */}
-      {selectedMemberForNodeModal && (
-        <Dialog open={isNodeModalOpen} onOpenChange={setIsNodeModalOpen}>
-          <DialogContent className="sm:max-w-md">
-            <h3 className="text-lg font-semibold mb-2">Old Member Details (Modal)</h3>
-            <p><strong>Name:</strong> {selectedMemberForNodeModal.name}</p>
-            <p><strong>ID:</strong> {selectedMemberForNodeModal.id}</p>
-            <Button onClick={() => setIsNodeModalOpen(false)} className="mt-4">Close</Button>
-          </DialogContent>
-        </Dialog>
-      )}
-
-      {/* New NodeDetailPanel */}
-      <NodeDetailPanel
-        member={selectedMemberForPanel}
-        onClose={() => {
-          setIsNodeDetailPanelOpen(false);
-          setSelectedMemberForPanel(null);
-        }}
-        onEdit={(memberToEdit) => {
-          handleSetEditingMember(memberToEdit);
-          setIsNodeDetailPanelOpen(false);
-          setSelectedMemberForPanel(null);
-        }}
-      />
     </div>
   );
 };
