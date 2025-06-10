@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState, useMemo } from 'react';
-import { X, Calendar, MapPin, Briefcase, Heart, Users, User, Mail, Phone, Droplets, BarChart3, VenusMars } from 'lucide-react';
+import { X, Calendar, MapPin, Briefcase, Heart, Users, User, Mail, Phone, Droplets, BarChart3, PersonStanding } from 'lucide-react';
 import { FamilyMember } from '../types/family';
 import { supabase } from '../lib/supabaseClient';
 import { parsePartnerString } from '../lib/stringUtils';
@@ -244,14 +244,14 @@ const MemberModal: React.FC<MemberModalProps> = ({
               )}
               {detailedMember.gender && (
                 <div className="flex items-center space-x-2 text-gray-600">
-                  <VenusMars className="h-5 w-5" />
+                  <PersonStanding className={`h-5 w-5 ${detailedMember.gender === 'male' ? 'text-blue-500' : 'text-pink-500'}`} />
                   <div>
                     <p className="font-medium">Gender</p>
                     <p className="capitalize">{detailedMember.gender}</p>
                   </div>
                 </div>
               )}
-              {detailedMember.generation && ( 
+              {detailedMember.generation && (
                 <div className="flex items-center space-x-2 text-gray-600">
                   <BarChart3 className="h-5 w-5" />
                   <div>
