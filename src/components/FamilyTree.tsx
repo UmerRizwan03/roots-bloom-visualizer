@@ -1,23 +1,28 @@
-import React, { useCallback, useEffect, useState, useMemo, useRef } from 'react'; 
+import React, { useCallback, useEffect, useState, useMemo, useRef } from 'react';
 import {
   ReactFlow,
   useNodesState,
   useEdgesState,
   addEdge,
   Connection,
-  Edge,
-  Node,
   Controls,
   Background,
   BackgroundVariant,
   MiniMap,
-  Position,
-  // MarkerType, // No longer directly used here
+  Position as RFPosition, // Aliased Position
+  ReactFlowProvider,      // Added
+  useReactFlow,           // Added
+  Node as RFNode,         // Aliased Node
+  Edge as RFEdge,         // Aliased Edge
+  OnNodesChange as RFOnNodesChange, // Aliased
+  OnEdgesChange as RFOnEdgesChange, // Aliased
+  OnConnect as RFOnConnect,         // Aliased
+  NodeTypes as RFNodeTypes,       // Aliased
+  Viewport as RFViewport,         // Aliased Viewport
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { FamilyMember } from '../types/family';
 import FamilyMemberNode from './FamilyMemberNode';
-// Removed local getDescendants, it's now used by layoutFamilyTree from treeUtils
 import { layoutFamilyTree, LayoutCallbacks, LayoutConfig } from '../lib/layoutFamilyTree';
 
 interface FamilyTreeProps {
@@ -29,23 +34,126 @@ interface FamilyTreeProps {
   focusedMemberId?: string | null;
   hoveredMemberId?: string | null;
   canEdit: boolean;
-  viewMode: 'FullTree' | 'PersonView' | 'LineageView'; // Added viewMode
-  lineageDirection: 'Ancestors' | 'Descendants'; // Added lineageDirection
-  onNodeClick: (member: FamilyMember) => void; // Added onNodeClick for modal
+  viewMode: 'FullTree' | 'PersonView' | 'LineageView';
+  lineageDirection: 'Ancestors' | 'Descendants';
+  onNodeClick: (member: FamilyMember) => void;
+  setZoomInFunc?: (func: () => void) => void;  // Added
+  setZoomOutFunc?: (func: () => void) => void; // Added
 }
 
-const nodeTypes = {
+// Define FlowInstanceProps interface
+interface FlowInstanceProps {
+  nodes: RFNode[];
+  edges: RFEdge[];
+  onNodesChange: RFOnNodesChange;
+  onEdgesChange: RFOnEdgesChange;
+  onConnect: RFOnConnect;
+  nodeTypes: RFNodeTypes;
+  setZoomInFunc?: (func: () => void) => void;
+  setZoomOutFunc?: (func: () => void) => void;
+  maxGeneration: number;
+  fitView?: boolean;
+  defaultViewport?: RFViewport;
+  minZoom?: number;
+  maxZoom?: number;
+  style?: React.CSSProperties;
+  onlyRenderVisibleElements?: boolean;
+  nodesDraggable?: boolean;
+  nodesConnectable?: boolean;
+  elementsSelectable?: boolean;
+}
+
+const nodeTypes: RFNodeTypes = { // Use aliased RFNodeTypes
   familyMember: FamilyMemberNode,
 };
 
 // Define layout configuration constants
+// This remains in the module scope, accessible by FlowInstance
 const layoutConfig: LayoutConfig = {
-    generationSpacing: 600, // Increased from 480
+    generationSpacing: 600,
     memberSpacing: 150,
     nodeWidth: 208,
     siblingSpacing: 70,
-    // minParentPadding: 20, // Ensure these match what layoutFamilyTree expects if used
-    // minFamilyBlockSpacing: 50, // Or remove if not used in the moved logic
+};
+
+
+// Create the FlowInstance internal component
+const FlowInstance: React.FC<FlowInstanceProps> = ({
+  nodes,
+  edges,
+  onNodesChange,
+  onEdgesChange,
+  onConnect,
+  nodeTypes,
+  setZoomInFunc,
+  setZoomOutFunc,
+  maxGeneration,
+  fitView,
+  defaultViewport,
+  minZoom,
+  maxZoom,
+  style,
+  onlyRenderVisibleElements,
+  nodesDraggable,
+  nodesConnectable,
+  elementsSelectable,
+}) => {
+  const { zoomIn, zoomOut } = useReactFlow();
+
+  useEffect(() => {
+    if (setZoomInFunc) setZoomInFunc(zoomIn);
+    if (setZoomOutFunc) setZoomOutFunc(zoomOut);
+  }, [zoomIn, zoomOut, setZoomInFunc, setZoomOutFunc]);
+
+  const layoutConfigFromScope = layoutConfig; // Accessing from module scope
+
+  return (
+    <ReactFlow
+      nodes={nodes}
+      edges={edges}
+      onNodesChange={onNodesChange}
+      onEdgesChange={onEdgesChange}
+      onConnect={onConnect}
+      nodeTypes={nodeTypes}
+      fitView={fitView}
+      defaultViewport={defaultViewport}
+      minZoom={minZoom}
+      maxZoom={maxZoom}
+      style={style}
+      onlyRenderVisibleElements={onlyRenderVisibleElements}
+      nodesDraggable={nodesDraggable}
+      nodesConnectable={nodesConnectable}
+      elementsSelectable={elementsSelectable}
+    >
+      <Controls position={RFPosition.TopRight} /> 
+      <MiniMap
+        position={RFPosition.BottomRight} 
+        nodeColor={(n) => {
+          const nodeData = n.data as { isHighlighted?: boolean };
+          if (nodeData.isHighlighted) return '#22c55e';
+          return '#d1fae5';
+        }}
+        pannable
+        zoomable
+      />
+      <Background variant={BackgroundVariant.Dots} gap={40} size={2} color="#a7f3d0" style={{ opacity: 0.3 }}>
+        {maxGeneration > 0 && Array.from({ length: maxGeneration }, (_, i) => i + 1).map(genNumber => (
+          <div
+            key={`gen-bg-${genNumber}`}
+            style={{
+              position: 'absolute',
+              left: 0,
+              top: `${((genNumber - 1) * layoutConfigFromScope.generationSpacing)}px`,
+              width: '100%',
+              height: `${layoutConfigFromScope.generationSpacing}px`,
+              backgroundColor: genNumber % 2 === 0 ? 'rgba(0,0,0,0.025)' : 'rgba(0,0,0,0.015)',
+              zIndex: -2,
+            }}
+          />
+        ))}
+      </Background>
+    </ReactFlow>
+  );
 };
 
 const FamilyTree: React.FC<FamilyTreeProps> = ({
@@ -57,44 +165,33 @@ const FamilyTree: React.FC<FamilyTreeProps> = ({
   focusedMemberId,
   hoveredMemberId,
   canEdit,
-  viewMode, // Added viewMode
-  lineageDirection, // Added lineageDirection
-  onNodeClick // Added onNodeClick
+  viewMode,
+  lineageDirection,
+  onNodeClick,
+  setZoomInFunc, // Destructure new props
+  setZoomOutFunc, // Destructure new props
 }) => {
-  const [nodes, setNodes, onNodesChange] = useNodesState([]);
-  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+  const [nodes, setNodes, onNodesChange] = useNodesState<RFNode[]>([]); // Use aliased types
+  const [edges, setEdges, onEdgesChange] = useEdgesState<RFEdge[]>([]); // Use aliased types
   const [collapsedStates, setCollapsedStates] = useState<Record<string, boolean>>({});
   const [flowViewportWidth, setFlowViewportWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1000);
   const reactFlowWrapperRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    // Set initial width
     if (reactFlowWrapperRef.current) {
       setFlowViewportWidth(reactFlowWrapperRef.current.offsetWidth);
     }
-
     const resizeObserver = new ResizeObserver(entries => {
-      if (entries[0]) {
-        setFlowViewportWidth(entries[0].contentRect.width);
-      }
+      if (entries[0]) setFlowViewportWidth(entries[0].contentRect.width);
     });
-
-    if (reactFlowWrapperRef.current) {
-      resizeObserver.observe(reactFlowWrapperRef.current);
-    }
-
+    if (reactFlowWrapperRef.current) resizeObserver.observe(reactFlowWrapperRef.current);
     return () => {
-      if (reactFlowWrapperRef.current) {
-        resizeObserver.unobserve(reactFlowWrapperRef.current); // eslint-disable-line react-hooks/exhaustive-deps
-      }
+      if (reactFlowWrapperRef.current) resizeObserver.unobserve(reactFlowWrapperRef.current);
     };
-  }, []); // Empty dependency array means this runs once on mount and cleans up on unmount
+  }, []);
 
   const handleToggleCollapse = useCallback((memberId: string) => {
-    setCollapsedStates(prev => ({
-      ...prev,
-      [memberId]: !prev[memberId]
-    }));
+    setCollapsedStates(prev => ({ ...prev, [memberId]: !prev[memberId] }));
   }, []);
 
   const onConnect = useCallback(
@@ -102,34 +199,21 @@ const FamilyTree: React.FC<FamilyTreeProps> = ({
     [setEdges]
   );
 
-  // Memoize callbacks to ensure stable reference for layoutFamilyTree's dependencies
   const memoizedCallbacks: LayoutCallbacks = useMemo(() => ({
     onSelect: onMemberSelect,
     onEdit: onSetEditingMember,
     onDelete: onDeleteMember,
     onToggleCollapse: handleToggleCollapse,
-    onNodeClick: onNodeClick, // Pass onNodeClick
+    onNodeClick: onNodeClick,
   }), [onMemberSelect, onSetEditingMember, onDeleteMember, handleToggleCollapse, onNodeClick]);
 
-  // Calculate nodes and edges using the external layout function, memoized
   const { nodes: calculatedNodes, edges: calculatedEdges } = useMemo(() => {
     return layoutFamilyTree(
-      members,
-      searchQuery,
-      collapsedStates,
-      focusedMemberId,
-      memoizedCallbacks,
-      layoutConfig,
-      canEdit,
-      flowViewportWidth,
-      hoveredMemberId,
-      viewMode, // Pass viewMode
-      lineageDirection, // Pass lineageDirection
-      // onNodeClick is part of memoizedCallbacks, so no need to list it again here
+      members, searchQuery, collapsedStates, focusedMemberId, memoizedCallbacks,
+      layoutConfig, canEdit, flowViewportWidth, hoveredMemberId, viewMode, lineageDirection
     );
-  }, [members, searchQuery, collapsedStates, focusedMemberId, hoveredMemberId, memoizedCallbacks, layoutConfig, canEdit, flowViewportWidth, viewMode, lineageDirection]);
+  }, [members, searchQuery, collapsedStates, focusedMemberId, hoveredMemberId, memoizedCallbacks, canEdit, flowViewportWidth, viewMode, lineageDirection]);
 
-  // Update ReactFlow state when calculatedNodes or calculatedEdges change
   useEffect(() => {
     setNodes(calculatedNodes);
     setEdges(calculatedEdges);
@@ -142,60 +226,28 @@ const FamilyTree: React.FC<FamilyTreeProps> = ({
 
   return (
     <div className="w-full h-full relative" ref={reactFlowWrapperRef}>
-      <ReactFlow
-        nodes={nodes}
-        edges={edges}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
-        onConnect={onConnect}
-        nodeTypes={nodeTypes}
-        fitView
-        defaultViewport={{ x: 0, y: 0, zoom: 0.7 }}
-        minZoom={0.1}
-        maxZoom={1.5}
-        style={{ background: 'linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 50%, #f7fee7 100%)' }}
-        onlyRenderVisibleElements={true}
-        nodesDraggable={false}
-        nodesConnectable={false}
-        elementsSelectable={true} // Or false, depending on desired interaction
-      >
-        <Controls position="top-right" />
-        <MiniMap
-          position="bottom-right" 
-          nodeColor={(n) => {
-            // Node type for ReactFlow typically has data as an optional any.
-            // We know our FamilyMemberNode has specific data structure.
-            const nodeData = n.data as { isHighlighted?: boolean }; 
-            if (nodeData.isHighlighted) {
-              return '#22c55e'; // Tailwind green-500
-            }
-            return '#d1fae5'; // Tailwind emerald-100 / green-100
-          }}
-          pannable 
-          zoomable 
+      <ReactFlowProvider>
+        <FlowInstance
+          nodes={nodes}
+          edges={edges}
+          onNodesChange={onNodesChange}
+          onEdgesChange={onEdgesChange}
+          onConnect={onConnect}
+          nodeTypes={nodeTypes}
+          setZoomInFunc={setZoomInFunc}
+          setZoomOutFunc={setZoomOutFunc}
+          maxGeneration={maxGeneration}
+          fitView={true} // Default to true, or pass as prop if configurable
+          defaultViewport={{ x: 0, y: 0, zoom: 0.7 }}
+          minZoom={0.1}
+          maxZoom={1.5}
+          style={{ background: 'linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 50%, #f7fee7 100%)' }}
+          onlyRenderVisibleElements={true}
+          nodesDraggable={false}
+          nodesConnectable={false}
+          elementsSelectable={true}
         />
-        <Background variant={BackgroundVariant.Dots} gap={40} size={2} color="#a7f3d0" style={{ opacity: 0.3 }}>
-          {maxGeneration > 0 && Array.from({ length: maxGeneration }, (_, i) => i + 1).map(genNumber => (
-            <div
-              key={`gen-bg-${genNumber}`}
-              style={{
-                position: 'absolute',
-                left: 0,
-                // The top of the band for generation 'genNumber'
-                // Node Y is (genNumber - 1) * generationSpacing.
-                // We want the band to roughly center the nodes of that generation.
-                // So, it starts a bit before the nodes and extends for one generationSpacing.
-                // Let's try starting it at the node Y position.
-                top: `${((genNumber - 1) * layoutConfig.generationSpacing)}px`,
-                width: '100%',
-                height: `${layoutConfig.generationSpacing}px`,
-                backgroundColor: genNumber % 2 === 0 ? 'rgba(0,0,0,0.025)' : 'rgba(0,0,0,0.015)', // Subtle alternating shades
-                zIndex: -2, // Ensure it's behind the dot pattern if possible, or at least nodes/edges
-              }}
-            />
-          ))}
-        </Background>
-      </ReactFlow>
+      </ReactFlowProvider>
     </div>
   );
 };
