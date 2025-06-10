@@ -37,8 +37,9 @@ interface FamilyTreeProps {
   viewMode: 'FullTree' | 'PersonView' | 'LineageView';
   lineageDirection: 'Ancestors' | 'Descendants';
   onNodeClick: (member: FamilyMember) => void;
-  setZoomInFunc?: (func: () => void) => void;  // Added
-  setZoomOutFunc?: (func: () => void) => void; // Added
+  setZoomInFunc?: (func: () => void) => void;
+  setZoomOutFunc?: (func: () => void) => void;
+  onAddChild?: (member: FamilyMember) => void; // Add this
 }
 
 // Define FlowInstanceProps interface
@@ -168,11 +169,12 @@ const FamilyTree: React.FC<FamilyTreeProps> = ({
   viewMode,
   lineageDirection,
   onNodeClick,
-  setZoomInFunc, // Destructure new props
-  setZoomOutFunc, // Destructure new props
+  setZoomInFunc,
+  setZoomOutFunc,
+  onAddChild, // Destructure onAddChild
 }) => {
-  const [nodes, setNodes, onNodesChange] = useNodesState<RFNode[]>([]); // Use aliased types
-  const [edges, setEdges, onEdgesChange] = useEdgesState<RFEdge[]>([]); // Use aliased types
+  const [nodes, setNodes, onNodesChange] = useNodesState<RFNode[]>([]);
+  const [edges, setEdges, onEdgesChange] = useEdgesState<RFEdge[]>([]);
   const [collapsedStates, setCollapsedStates] = useState<Record<string, boolean>>({});
   const [flowViewportWidth, setFlowViewportWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1000);
   const reactFlowWrapperRef = useRef<HTMLDivElement>(null);
@@ -205,7 +207,8 @@ const FamilyTree: React.FC<FamilyTreeProps> = ({
     onDelete: onDeleteMember,
     onToggleCollapse: handleToggleCollapse,
     onNodeClick: onNodeClick,
-  }), [onMemberSelect, onSetEditingMember, onDeleteMember, handleToggleCollapse, onNodeClick]);
+    onAddChild: onAddChild, // Add onAddChild here
+  }), [onMemberSelect, onSetEditingMember, onDeleteMember, handleToggleCollapse, onNodeClick, onAddChild]); // Add onAddChild to dependency array
 
   const { nodes: calculatedNodes, edges: calculatedEdges } = useMemo(() => {
     return layoutFamilyTree(
