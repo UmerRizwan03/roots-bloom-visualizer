@@ -1,9 +1,9 @@
 
-import React, { useEffect, useState, useMemo } from 'react'; // Added useMemo
-import { X, Calendar, MapPin, Briefcase, Heart, Users, User } from 'lucide-react';
+import React, { useEffect, useState, useMemo } from 'react';
+import { X, Calendar, MapPin, Briefcase, Heart, Users, User, Mail, Phone, Droplets, BarChart3, VenusMars } from 'lucide-react';
 import { FamilyMember } from '../types/family';
 import { supabase } from '../lib/supabaseClient';
-import { parsePartnerString } from '../lib/stringUtils'; // Import shared function
+import { parsePartnerString } from '../lib/stringUtils';
 
 import { useAuth } from '../contexts/AuthContext'; // Import useAuth
 
@@ -242,10 +242,54 @@ const MemberModal: React.FC<MemberModalProps> = ({
                   </div>
                 </div>
               )}
-
+              {detailedMember.gender && (
+                <div className="flex items-center space-x-2 text-gray-600">
+                  <VenusMars className="h-5 w-5" />
+                  <div>
+                    <p className="font-medium">Gender</p>
+                    <p className="capitalize">{detailedMember.gender}</p>
+                  </div>
+                </div>
+              )}
+              {detailedMember.generation && ( 
+                <div className="flex items-center space-x-2 text-gray-600">
+                  <BarChart3 className="h-5 w-5" />
+                  <div>
+                    <p className="font-medium">Generation</p>
+                    <p>{detailedMember.generation}</p>
+                  </div>
+                </div>
+              )}
+              {detailedMember.mobileNumber && (
+                <div className="flex items-center space-x-2 text-gray-600">
+                  <Phone className="h-5 w-5" />
+                  <div>
+                    <p className="font-medium">Mobile</p>
+                    <p>{detailedMember.mobileNumber}</p>
+                  </div>
+                </div>
+              )}
+              {detailedMember.email && (
+                <div className="flex items-center space-x-2 text-gray-600">
+                  <Mail className="h-5 w-5" />
+                  <div>
+                    <p className="font-medium">Email</p>
+                    <p><a href={`mailto:${detailedMember.email}`} className="text-blue-600 hover:underline">{detailedMember.email}</a></p>
+                  </div>
+                </div>
+              )}
+              {detailedMember.bloodType && (
+                <div className="flex items-center space-x-2 text-gray-600">
+                  <Droplets className="h-5 w-5" />
+                  <div>
+                    <p className="font-medium">Blood Type</p>
+                    <p>{detailedMember.bloodType}</p>
+                  </div>
+                </div>
+              )}
               {detailedMember.coParentName && (
                 <div className="flex items-center space-x-2 text-gray-600">
-                  <Users className="h-5 w-5" /> {/* Using Users icon as in Node */}
+                  <Users className="h-5 w-5" /> 
                   <div>
                     <p className="font-medium">Co-parent Name</p>
                     <p>{detailedMember.coParentName}</p>
