@@ -37,8 +37,6 @@ export function layoutFamilyTree(
 
   // Use config values
   const { generationSpacing, memberSpacing, nodeWidth, siblingSpacing } = config;
-
-  const { generationSpacing, memberSpacing, nodeWidth, siblingSpacing } = config;
   const nodeYPositions = new Map<string, number>();
   let displayedMembers: FamilyMember[] = [];
   let nonDimmedMemberIds = new Set<string>(); // Used for FullTree dimming
