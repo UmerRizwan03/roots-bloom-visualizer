@@ -7,7 +7,8 @@ export interface LayoutCallbacks {
   onEdit: (member: FamilyMember) => void;
   onDelete: (memberId: string) => void;
   onToggleCollapse: (memberId: string) => void;
-  onNodeClick: (member: FamilyMember) => void; // Added onNodeClick
+  onNodeClick: (member: FamilyMember) => void;
+  onAddChild?: (member: FamilyMember) => void; // Add this
 }
 
 export interface LayoutConfig {
@@ -362,9 +363,10 @@ export function layoutFamilyTree(
             focusedRelationType,
             isCollapsed: !!collapsedStates[member.id],
             onToggleCollapse: callbacks.onToggleCollapse,
-            hasChildren: hasAnyChildren, // Use the new logic here
+            hasChildren: hasAnyChildren,
             canEdit: canEdit,
-            onNodeClick: callbacks.onNodeClick, // Pass onNodeClick
+            onNodeClick: callbacks.onNodeClick,
+            onAddChild: callbacks.onAddChild, // Pass it down
         },
         sourcePosition: Position.Bottom,
         targetPosition: Position.Top,
