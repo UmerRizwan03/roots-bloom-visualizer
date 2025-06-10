@@ -79,7 +79,7 @@ const FamilyMemberNodeInternal: React.FC<FamilyMemberNodeProps> = ({ data }) => 
   }, [handleClick]);
 
   return (
-    <div
+    <div 
       className="family-member-node"
       role="treeitem" // Added role
       aria-label={`Family member: ${member.name}, ${member.occupation || 'details available on click'}`} // Added aria-label
@@ -94,12 +94,12 @@ const FamilyMemberNodeInternal: React.FC<FamilyMemberNodeProps> = ({ data }) => 
       
       <div
         // onClick is already on the outer div, but if we want to ensure this inner div also triggers it (though redundant now):
-        // onClick={handleClick}
+        // onClick={handleClick} 
         // The main click/keyboard interaction is now on the root `family-member-node` div.
-        className={`
+        className={` 
           relative w-52 bg-white dark:bg-slate-800 rounded-2xl shadow-lg dark:shadow-slate-700/50
           cursor-pointer transition-all duration-300 ease-in-out hover:shadow-xl hover:-translate-y-1
-          overflow-hidden group
+          overflow-hidden group 
           focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-900 // Added focus styles for the card itself
           ${isHoverHighlighted && !isDimmed ? 'ring-2 ring-green-500 dark:ring-green-400 shadow-green-300/50 dark:shadow-green-700/50' : ''}
           ${isHighlighted && focusedRelationType !== 'self' && !isHoverHighlighted ? 'ring-2 ring-amber-400 dark:ring-amber-500 shadow-amber-200/50 dark:shadow-amber-600/50' : ''}
@@ -216,14 +216,15 @@ const FamilyMemberNodeInternal: React.FC<FamilyMemberNodeProps> = ({ data }) => 
           <button
             onClick={handleToggleCollapse}
             className={`
-              absolute -bottom-4 left-1/2 -translate-x-1/2
+              absolute top-2 left-2
               w-8 h-8 rounded-full border-2 border-white dark:border-slate-700
               flex items-center justify-center shadow-lg
-              transition-all duration-200 hover:scale-110 z-20
+              transition-all duration-300 hover:scale-110 z-20
+              opacity-0 group-hover:opacity-100 
               ${isCollapsed ? 'bg-emerald-500 hover:bg-emerald-600' : 'bg-sky-500 hover:bg-sky-600'}
             `}
-            aria-label={isCollapsed ? `Expand children of ${member.name}` : `Collapse children of ${member.name}`} // More specific label
-            aria-expanded={!isCollapsed} // Added aria-expanded
+            aria-label={isCollapsed ? `Expand children of ${member.name}` : `Collapse children of ${member.name}`}
+            aria-expanded={!isCollapsed}
           >
             {isCollapsed ? (
               <PlusCircle className="w-5 h-5 text-white" />
