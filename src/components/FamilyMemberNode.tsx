@@ -89,28 +89,26 @@ const FamilyMemberNodeInternal: React.FC<FamilyMemberNodeProps> = ({ data }) => 
       <Handle
         type="target"
         position={Position.Top}
-        className="!w-2 !h-2 !bg-slate-400 dark:!bg-slate-500 !border-2 !border-white dark:!border-slate-700 !shadow-sm"
+        className="!w-2 !h-2 !bg-slate-400 !border-2 !border-white !shadow-sm"
       />
       
       <div
-        // onClick is already on the outer div, but if we want to ensure this inner div also triggers it (though redundant now):
-        // onClick={handleClick} 
-        // The main click/keyboard interaction is now on the root `family-member-node` div.
+        // onClick is already on the outer div
         className={` 
-          relative w-52 bg-white dark:bg-slate-800 rounded-2xl shadow-lg dark:shadow-slate-700/50
+          relative w-52 bg-white rounded-2xl shadow-lg
           cursor-pointer transition-all duration-300 ease-in-out hover:shadow-xl hover:-translate-y-1
           overflow-hidden group 
-          focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-900 // Added focus styles for the card itself
-          ${isHoverHighlighted && !isDimmed ? 'ring-2 ring-green-500 dark:ring-green-400 shadow-green-300/50 dark:shadow-green-700/50' : ''}
-          ${isHighlighted && focusedRelationType !== 'self' && !isHoverHighlighted ? 'ring-2 ring-amber-400 dark:ring-amber-500 shadow-amber-200/50 dark:shadow-amber-600/50' : ''}
+          focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2 // Base focus styles
+          ${isHoverHighlighted && !isDimmed ? 'ring-2 ring-green-500 shadow-green-300/50' : ''}
+          ${isHighlighted && focusedRelationType !== 'self' && !isHoverHighlighted ? 'ring-2 ring-amber-400 shadow-amber-200/50' : ''}
           ${isCollapsed ? 'opacity-80' : ''}
-          ${isDimmed && !isHoverHighlighted ? 'opacity-30 dark:opacity-40' : ''} // Ensure hover highlight isn't dimmed; slightly less dim for dark mode
-          ${!isDimmed && focusedRelationType === 'self' ? 'border-blue-500 dark:border-blue-400 ring-4 ring-blue-500 dark:ring-blue-400 shadow-blue-300/50 dark:shadow-blue-600/50' :
-            !isDimmed && focusedRelationType === 'parent' ? 'border-sky-400 dark:border-sky-500' :
-            !isDimmed && focusedRelationType === 'spouse' ? 'border-pink-400 dark:border-pink-500' :
-            !isDimmed && (focusedRelationType === 'child' || focusedRelationType === 'descendant') ? 'border-green-400 dark:border-green-500' :
-            !isDimmed && focusedRelationType === 'sibling' ? 'border-purple-400 dark:border-purple-500' :
-            'border-slate-200 dark:border-slate-700' // Default border
+          ${isDimmed && !isHoverHighlighted ? 'opacity-30' : ''} // Ensure hover highlight isn't dimmed
+          ${!isDimmed && focusedRelationType === 'self' ? 'border-blue-500 ring-4 ring-blue-500 shadow-blue-300/50' :
+            !isDimmed && focusedRelationType === 'parent' ? 'border-sky-400' :
+            !isDimmed && focusedRelationType === 'spouse' ? 'border-pink-400' :
+            !isDimmed && (focusedRelationType === 'child' || focusedRelationType === 'descendant') ? 'border-green-400' :
+            !isDimmed && focusedRelationType === 'sibling' ? 'border-purple-400' :
+            'border-slate-200' // Default border
           }
         `}
       >
@@ -145,10 +143,10 @@ const FamilyMemberNodeInternal: React.FC<FamilyMemberNodeProps> = ({ data }) => 
           
           {/* Avatar */}
           <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2">
-            <div className="w-12 h-12 bg-white dark:bg-slate-700 rounded-full p-0.5 shadow-lg">
+            <div className="w-12 h-12 bg-white rounded-full p-0.5 shadow-lg">
               <div className={`
                 w-full h-full rounded-full flex items-center justify-center overflow-hidden
-                ${member.gender === 'male' ? 'bg-blue-50 dark:bg-blue-900' : 'bg-rose-50 dark:bg-pink-900'}
+                ${member.gender === 'male' ? 'bg-blue-50' : 'bg-rose-50'}
               `}>
                 {member.photo ? (
                   <img 
@@ -157,7 +155,7 @@ const FamilyMemberNodeInternal: React.FC<FamilyMemberNodeProps> = ({ data }) => 
                     className="w-full h-full object-cover rounded-full"
                   />
                 ) : (
-                  <User className={`w-6 h-6 ${member.gender === 'male' ? 'text-blue-600 dark:text-blue-300' : 'text-rose-600 dark:text-pink-300'}`} />
+                  <User className={`w-6 h-6 ${member.gender === 'male' ? 'text-blue-600' : 'text-rose-600'}`} />
                 )}
               </div>
             </div>
@@ -168,12 +166,12 @@ const FamilyMemberNodeInternal: React.FC<FamilyMemberNodeProps> = ({ data }) => 
         <div className="pt-4 pb-4 px-4 space-y-3">
           {/* Name and Age Section */}
           <div className="text-center min-h-[4rem]">
-            <h3 className="font-semibold text-slate-900 dark:text-slate-100 text-lg leading-tight mb-1 min-h-[2.5rem] flex items-center justify-center">
+            <h3 className="font-semibold text-slate-900 text-lg leading-tight mb-1 min-h-[2.5rem] flex items-center justify-center">
               <span className="truncate max-w-full">{member.name}</span>
             </h3>
             <div className="min-h-[1.25rem] flex items-center justify-center">
               {age && (
-                <div className="flex items-center text-sm text-slate-500 dark:text-slate-400">
+                <div className="flex items-center text-sm text-slate-500">
                   <Calendar className="w-3 h-3 mr-1" />
                   <span>{age} years old</span>
                 </div>
@@ -184,10 +182,10 @@ const FamilyMemberNodeInternal: React.FC<FamilyMemberNodeProps> = ({ data }) => 
           {/* Details */}
           <div className="space-y-2">
             {/* Mobile Number Display */}
-            <div className="flex items-center text-sm text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-700 rounded-lg px-2 py-1 min-h-[2rem]">
+            <div className="flex items-center text-sm text-slate-600 bg-slate-50 rounded-lg px-2 py-1 min-h-[2rem]">
               {member.mobileNumber ? (
                 <>
-                  <Phone className="w-3 h-3 mr-2 text-slate-400 dark:text-slate-500 flex-shrink-0" />
+                  <Phone className="w-3 h-3 mr-2 text-slate-400 flex-shrink-0" />
                   <span className="truncate">{member.mobileNumber}</span>
                 </>
               ) : (
@@ -195,10 +193,10 @@ const FamilyMemberNodeInternal: React.FC<FamilyMemberNodeProps> = ({ data }) => 
               )}
             </div>
             
-            <div className="flex items-center text-sm text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-700 rounded-lg px-2 py-1 min-h-[2rem]">
+            <div className="flex items-center text-sm text-slate-600 bg-slate-50 rounded-lg px-2 py-1 min-h-[2rem]">
               {member.occupation ? (
                 <>
-                  <Briefcase className="w-3 h-3 mr-2 text-slate-400 dark:text-slate-500 flex-shrink-0" />
+                  <Briefcase className="w-3 h-3 mr-2 text-slate-400 flex-shrink-0" />
                   <span className="truncate">{member.occupation}</span>
                 </>
               ) : (
@@ -208,16 +206,16 @@ const FamilyMemberNodeInternal: React.FC<FamilyMemberNodeProps> = ({ data }) => 
           </div>
         </div>
 
-        {/* Hover effect overlay - subtle change for dark mode if needed, or keep as is if it looks good */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-2xl dark:from-black/10" />
+        {/* Hover effect overlay */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-2xl" />
       
-        {/* Collapse/Expand Button - Colors are specific, should be fine in dark/light */}
+        {/* Collapse/Expand Button */}
         {hasChildren && onToggleCollapse && (
           <button
             onClick={handleToggleCollapse}
             className={`
               absolute top-2 left-2
-              w-8 h-8 rounded-full border-2 border-white dark:border-slate-700
+              w-8 h-8 rounded-full border-2 border-white
               flex items-center justify-center shadow-lg
               transition-all duration-300 hover:scale-110 z-20
               opacity-0 group-hover:opacity-100 
@@ -238,7 +236,7 @@ const FamilyMemberNodeInternal: React.FC<FamilyMemberNodeProps> = ({ data }) => 
       <Handle
         type="source"
         position={Position.Bottom}
-        className="!w-2 !h-2 !bg-slate-400 dark:!bg-slate-500 !border-2 !border-white dark:!border-slate-700 !shadow-sm"
+        className="!w-2 !h-2 !bg-slate-400 !border-2 !border-white !shadow-sm"
       />
     </div>
   );
