@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { TreePine, UserPlus, PanelRightOpen, PanelRightClose, Menu } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
+import TopActionBar from '@/components/TopActionBar'; // Added
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -59,6 +60,11 @@ const Index = () => {
   // State for the new node click modal
   const [selectedMemberForNodeModal, setSelectedMemberForNodeModal] = useState<FamilyMember | null>(null);
   const [isNodeModalOpen, setIsNodeModalOpen] = useState(false);
+
+  // State variables for zoom functions
+  const [reactFlowZoomIn, setReactFlowZoomIn] = useState<(() => void) | null>(null);
+  const [reactFlowZoomOut, setReactFlowZoomOut] = useState<(() => void) | null>(null);
+
   const fetchMembers = useCallback(async () => {
     setIsLoading(true);
     setFetchError(null);
@@ -242,16 +248,15 @@ const Index = () => {
       <header className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm border-b border-emerald-100 dark:border-slate-700 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-3 flex-shrink-0"> {/* Added flex-shrink-0 */}
-  <img
-    src="/unityLogo.png" // Replace with your custom logo path
-    alt="Custom Icon"
-    className="h-8 w-8"
-  />
-  <h1 className="text-2xl font-bold text-emerald-800 dark:text-emerald-300">Unity Valiyangadi</h1>
-</div>
-            <div className="flex items-center min-w-0"> {/* Right side of header */}
-              {/* Desktop Navigation Links */}
+            <div className="flex items-center space-x-3 flex-shrink-0">
+              <img
+                src="/unityLogo.png"
+                alt="Custom Icon"
+                className="h-8 w-8"
+              />
+              <h1 className="text-2xl font-bold text-emerald-800 dark:text-emerald-300">Unity Valiyangadi</h1>
+            </div>
+            <div className="flex items-center min-w-0">
               <nav className="hidden md:flex space-x-8 mr-4">
                 <Link to="/" className="text-emerald-600 dark:text-emerald-400 font-medium">Home</Link>
                 <Link to="/members" className="text-gray-600 dark:text-slate-300 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">Members</Link>
@@ -309,16 +314,25 @@ const Index = () => {
               </Button>
 
               {/* The Mobile Dropdown Menu for Home/Members/Magazines has been REMOVED from here */}
-              {/* Its functionality will be in the sidebar */}
             </div>
           </div>
         </div>
       </header>
-
+      <TopActionBar
+        members={members}
+        searchQuery={searchQuery}
+        onSearchQueryChange={handleSearchQueryChange}
+        onMemberSelect={(memberId) => handleFocusAndShowDetails(memberId)}
+        onHoverMember={setHoveredMemberId}
+        onResetFocus={handleResetFocus}
+        viewMode={viewMode}
+        onSetViewMode={setViewMode}
+        onZoomIn={() => reactFlowZoomIn && reactFlowZoomIn()}
+        onZoomOut={() => reactFlowZoomOut && reactFlowZoomOut()}
+      />
       {/* Section for Title/Description - Remains constrained */}
       <section className="pt-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          {/* Breadcrumbs Integration */}
           <Breadcrumbs
             focusedMemberId={focusedMemberId}
             members={members}
@@ -349,14 +363,17 @@ const Index = () => {
                 <FamilyTree 
                   members={members}
                   onMemberSelect={(member) => handleFocusAndShowDetails(member.id)} // Updated
-                  searchQuery={searchQuery} 
-                  onSetEditingMember={handleSetEditingMember} 
-                  onDeleteMember={handleDeleteMember}     
+                  searchQuery={searchQuery}
+                  onSetEditingMember={handleSetEditingMember}
+                  onDeleteMember={handleDeleteMember}
                   focusedMemberId={focusedMemberId}
                   hoveredMemberId={hoveredMemberId}
                   viewMode={viewMode}
                   lineageDirection={lineageDirection}
-                  onNodeClick={handleNodeClick} // Pass the new handler
+                  onNodeClick={handleNodeClick}
+                  canEdit={!authLoading && !!user && user.role === 'admin'}
+                  setZoomInFunc={(func) => setReactFlowZoomIn(() => func)}
+                  setZoomOutFunc={(func) => setReactFlowZoomOut(() => func)}
                 />
               </div>
             </div>
