@@ -56,7 +56,9 @@ const Index = () => {
   const [viewMode, setViewMode] = useState<ViewMode>('FullTree');
   const [lineageDirection, setLineageDirection] = useState<LineageDirection>('Descendants');
 
-
+  // State for the new node click modal
+  const [selectedMemberForNodeModal, setSelectedMemberForNodeModal] = useState<FamilyMember | null>(null);
+  const [isNodeModalOpen, setIsNodeModalOpen] = useState(false);
   const fetchMembers = useCallback(async () => {
     setIsLoading(true);
     setFetchError(null);
@@ -204,14 +206,23 @@ const Index = () => {
 
   const handleResetFocus = useCallback(() => {
     handleFocusAndShowDetails(null); // Clear focus and detail view
-  }, [handleFocusAndShowDetails]);
+    setViewMode('FullTree'); // Reset view mode to FullTree
+    setSearchQuery(""); // Clear search query
+  }, [handleFocusAndShowDetails, setViewMode, setSearchQuery]);
 
   const handleSearchQueryChange = useCallback((query: string) => {
     setSearchQuery(query);
     if (!query) {
       setFocusedMemberId(null);
     }
-  }, []); 
+  }, []);
+
+  // Handler for node click to open modal
+  const handleNodeClick = useCallback((member: FamilyMember) => {
+    setSelectedMemberForNodeModal(member);
+    setIsNodeModalOpen(true);
+    // console.log("Node clicked, open modal for:", member); // Placeholder
+  }, []);
 
   const toggleDrawer = useCallback(() => { 
     setIsDrawerOpen(prev => !prev); 
@@ -345,6 +356,7 @@ const Index = () => {
                   hoveredMemberId={hoveredMemberId}
                   viewMode={viewMode}
                   lineageDirection={lineageDirection}
+                  onNodeClick={handleNodeClick} // Pass the new handler
                 />
               </div>
             </div>
@@ -466,6 +478,20 @@ const Index = () => {
         <Dialog open={isSignUpModalOpen} onOpenChange={setIsSignUpModalOpen}>
           <DialogContent className="sm:max-w-md">
             <SignUpForm onSignUpSuccess={() => setIsSignUpModalOpen(false)} />
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Placeholder Modal for Node Click */}
+      {selectedMemberForNodeModal && (
+        <Dialog open={isNodeModalOpen} onOpenChange={setIsNodeModalOpen}>
+          <DialogContent className="sm:max-w-md">
+            <h3 className="text-lg font-semibold mb-2">Member Details (Modal)</h3>
+            <p><strong>Name:</strong> {selectedMemberForNodeModal.name}</p>
+            <p><strong>ID:</strong> {selectedMemberForNodeModal.id}</p>
+            <p><strong>Gender:</strong> {selectedMemberForNodeModal.gender}</p>
+            {/* Add more details as needed */}
+            <Button onClick={() => setIsNodeModalOpen(false)} className="mt-4">Close</Button>
           </DialogContent>
         </Dialog>
       )}
