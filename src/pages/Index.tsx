@@ -10,9 +10,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import ThemeToggleButton from '../components/ThemeToggleButton';
-import Sidebar from '../components/Sidebar'; 
+import Sidebar from '../components/Sidebar';
 import FamilyTree from '../components/FamilyTree';
 import MemberModal from '../components/MemberModal';
+import NodeDetailPanel from '@/components/NodeDetailPanel'; // Added
 import { FamilyMember } from '../types/family';
 import { supabase } from '../lib/supabaseClient'; 
 import AddMemberForm from '../components/AddMemberForm';
@@ -58,12 +59,22 @@ const Index = () => {
   const [lineageDirection, setLineageDirection] = useState<LineageDirection>('Descendants');
 
   // State for the new node click modal
-  const [selectedMemberForNodeModal, setSelectedMemberForNodeModal] = useState<FamilyMember | null>(null);
-  const [isNodeModalOpen, setIsNodeModalOpen] = useState(false);
+  const [selectedMemberForNodeModal, setSelectedMemberForNodeModal] = useState<FamilyMember | null>(null); // Will be unused by node click
+  const [isNodeModalOpen, setIsNodeModalOpen] = useState(false); // Will be unused by node click
 
   // State variables for zoom functions
   const [reactFlowZoomIn, setReactFlowZoomIn] = useState<(() => void) | null>(null);
   const [reactFlowZoomOut, setReactFlowZoomOut] = useState<(() => void) | null>(null);
+
+  // State variables for NodeDetailPanel
+  const [selectedMemberForPanel, setSelectedMemberForPanel] = useState<FamilyMember | null>(null);
+  const [isNodeDetailPanelOpen, setIsNodeDetailPanelOpen] = useState<boolean>(false);
+
+  const handleAddChild = useCallback((parentMember: FamilyMember) => {
+    console.log('Add Child requested for parent:', parentMember.name);
+    setEditingMember(null); 
+    setIsAddMemberModalOpen(true); 
+  }, [setIsAddMemberModalOpen]);
 
   const fetchMembers = useCallback(async () => {
     setIsLoading(true);
@@ -211,27 +222,31 @@ const Index = () => {
   }, [handleFocusAndShowDetails]);
 
   const handleResetFocus = useCallback(() => {
-    handleFocusAndShowDetails(null); // Clear focus and detail view
-    setViewMode('FullTree'); // Reset view mode to FullTree
-    setSearchQuery(""); // Clear search query
+    handleFocusAndShowDetails(null); 
+    setViewMode('FullTree'); 
+    setSearchQuery(""); 
+    setIsNodeDetailPanelOpen(false); // Add this line
+    setSelectedMemberForPanel(null); // Add this line
   }, [handleFocusAndShowDetails, setViewMode, setSearchQuery]);
 
   const handleSearchQueryChange = useCallback((query: string) => {
     setSearchQuery(query);
     if (!query) {
       setFocusedMemberId(null);
+      // Optionally close the panel if search is cleared and no member is focused
+      // setIsNodeDetailPanelOpen(false); 
+      // setSelectedMemberForPanel(null);
     }
   }, []);
 
-  // Handler for node click to open modal
+  // Updated Handler for node click to open NodeDetailPanel
   const handleNodeClick = useCallback((member: FamilyMember) => {
-    setSelectedMemberForNodeModal(member);
-    setIsNodeModalOpen(true);
-    // console.log("Node clicked, open modal for:", member); // Placeholder
+    setSelectedMemberForPanel(member);
+    setIsNodeDetailPanelOpen(true);
   }, []);
 
-  const toggleDrawer = useCallback(() => { 
-    setIsDrawerOpen(prev => !prev); 
+  const toggleDrawer = useCallback(() => {
+    setIsDrawerOpen(prev => !prev);
   }, []);
 
   if (isLoading) {
@@ -374,6 +389,7 @@ const Index = () => {
                   canEdit={!authLoading && !!user && user.role === 'admin'}
                   setZoomInFunc={(func) => setReactFlowZoomIn(() => func)}
                   setZoomOutFunc={(func) => setReactFlowZoomOut(() => func)}
+                  onAddChild={handleAddChild}
                 />
               </div>
             </div>
@@ -499,19 +515,31 @@ const Index = () => {
         </Dialog>
       )}
 
-      {/* Placeholder Modal for Node Click */}
+      {/* Old Dialog Modal (will no longer be opened by node click) */}
       {selectedMemberForNodeModal && (
         <Dialog open={isNodeModalOpen} onOpenChange={setIsNodeModalOpen}>
           <DialogContent className="sm:max-w-md">
-            <h3 className="text-lg font-semibold mb-2">Member Details (Modal)</h3>
+            <h3 className="text-lg font-semibold mb-2">Old Member Details (Modal)</h3>
             <p><strong>Name:</strong> {selectedMemberForNodeModal.name}</p>
             <p><strong>ID:</strong> {selectedMemberForNodeModal.id}</p>
-            <p><strong>Gender:</strong> {selectedMemberForNodeModal.gender}</p>
-            {/* Add more details as needed */}
             <Button onClick={() => setIsNodeModalOpen(false)} className="mt-4">Close</Button>
           </DialogContent>
         </Dialog>
       )}
+
+      {/* New NodeDetailPanel */}
+      <NodeDetailPanel
+        member={selectedMemberForPanel}
+        onClose={() => {
+          setIsNodeDetailPanelOpen(false);
+          setSelectedMemberForPanel(null);
+        }}
+        onEdit={(memberToEdit) => {
+          handleSetEditingMember(memberToEdit);
+          setIsNodeDetailPanelOpen(false);
+          setSelectedMemberForPanel(null);
+        }}
+      />
     </div>
   );
 };
