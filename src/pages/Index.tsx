@@ -265,8 +265,6 @@ const Index = () => {
               <h1 className="text-2xl font-bold text-emerald-800 dark:text-emerald-300">Unity Valiyangadi</h1>
             </div>
             <div className="flex items-center min-w-0">
-              {/* FloatingPageNav is positioned fixed, so it doesn't need to be in this flex flow for layout */}
-              <FloatingPageNav />
 
               {/* Auth Buttons Block - Desktop Only */}
               <div className="hidden md:flex items-center">
