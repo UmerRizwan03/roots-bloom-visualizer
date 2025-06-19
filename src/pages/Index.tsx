@@ -10,6 +10,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import ThemeToggleButton from '../components/ThemeToggleButton';
+import FloatingPageNav from '../components/FloatingPageNav'; // Added import
 import Sidebar from '../components/Sidebar';
 import FamilyTree from '../components/FamilyTree';
 import MemberModal from '../components/MemberModal';
@@ -265,11 +266,8 @@ const Index = () => {
               <h1 className="text-2xl font-bold text-emerald-800 dark:text-emerald-300">Unity Valiyangadi</h1>
             </div>
             <div className="flex items-center min-w-0">
-              <nav className="hidden md:flex space-x-8 mr-4">
-                <Link to="/" className="text-emerald-600 dark:text-emerald-400 font-medium">Home</Link>
-                <Link to="/members" className="text-gray-600 dark:text-slate-300 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">Members</Link>
-                <Link to="/magazines" className="text-gray-600 dark:text-slate-300 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">Magazines</Link>
-              </nav>
+              {/* FloatingPageNav is positioned fixed, so it doesn't need to be in this flex flow for layout */}
+              <FloatingPageNav />
 
               {/* Auth Buttons Block - Desktop Only */}
               <div className="hidden md:flex items-center">
