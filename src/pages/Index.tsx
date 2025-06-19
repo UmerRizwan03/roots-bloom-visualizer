@@ -10,7 +10,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import ThemeToggleButton from '../components/ThemeToggleButton';
-import FloatingPageNav from '../components/FloatingPageNav'; // Added import
+import TopActionBar from '../components/TopActioBar';
 import Sidebar from '../components/Sidebar';
 import FamilyTree from '../components/FamilyTree';
 import MemberModal from '../components/MemberModal';
